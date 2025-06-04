@@ -1,6 +1,9 @@
 .idea
 poetry.lock
 .venv
+.json
+.csv
+.html
 venv
 .env
 # Byte-compiled / optimized / DLL files
