@@ -34,7 +34,7 @@ dev:
 
 # Test locally (requires local Python environment)
 test:
-	pytest --timeout=60
+	pytest tests/ -v
 
 # Run end-to-end tests (requires Ollama service running)
 test-e2e: check-ollama
@@ -45,8 +45,20 @@ test-streaming: check-ollama
 	OLLAMA_ADAPTER_TYPE=modular pytest tests/e2e/test_streaming.py -v
 
 # Run all tests including slow ones
-test-all: check-ollama
+test-all:
 	pytest tests/ -v
+
+# Run benchmark tests
+benchmark:
+	python test_runner.py --benchmark
+
+# Run single model test
+single-model:
+	python test_runner.py --single-model mistral:latest
+
+# Generate HTML report
+report:
+	python test_runner.py --output benchmark_report.html
 
 # Run health check script
 test-health:

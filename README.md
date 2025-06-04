@@ -1,100 +1,140 @@
 ![allama-logo.svg](allama-logo.svg)
 
-# TestLLM - System Testowania Modeli LLM 🧪
+# Allama - LLM Testing and Benchmarking Suite 🧪
 
-Kompleksowy system do testowania i porównywania modeli Large Language Models (LLM) w kontekście generowania kodu Python. Projekt umożliwia automatyczną ocenę jakości wygenerowanego kodu poprzez różne metryki i generuje szczegółowe raporty HTML.
+A comprehensive testing and benchmarking suite for Large Language Models (LLMs) focused on Python code generation. The project enables automatic quality assessment of generated code through various metrics and generates detailed HTML reports.
 
-## ✨ Funkcjonalności
+## ✨ Features
 
-- **Automatyczne testowanie** multiple modeli LLM z konfigurowalnymi promptami
-- **Ocena jakości kodu** - sprawdzanie składni, wykonalności, stylu i funkcjonalności
-- **Szczegółowe raporty HTML** z metrykami, wykresami i porównaniami
-- **Eksport wyników** do CSV i JSON dla dalszej analizy
-- **Konfigurowalność** - łatwe dodawanie nowych modeli i testów
-- **Wsparcie dla różnych API** - Ollama, lokalnych serwerów, usług w chmurze
-- **Ranking modeli** na podstawie wydajności i jakości
+- **Automated Testing** of multiple LLM models with configurable prompts
+- **Code Quality Assessment** - syntax checking, execution, style, and functionality
+- **Detailed HTML Reports** with metrics, charts, and comparisons
+- **Results Export** to CSV and JSON for further analysis
+- **Highly Configurable** - easily add new models and tests
+- **Multiple API Support** - Ollama, local servers, cloud services
+- **Model Ranking** based on performance and quality metrics
 
-## 🚀 Szybki Start
+## 🚀 Quick Start
 
-### 1. Instalacja
+### 1. Installation
 
+#### Using Poetry (recommended)
 ```bash
-# Sklonuj projekt
+# Clone the repository
 git clone https://github.com/wronai/allama.git
-cd testllm
+cd allama
 
-# Zainstaluj zależności
-pip install -r requirements.txt
+# Install dependencies
+pip install poetry
+poetry install
 
-# Lub użyj skryptu setup
-python setup.py
+# Activate the virtual environment
+poetry shell
 ```
 
-### 2. Konfiguracja modeli
+#### Using pip
+```bash
+pip install .
+```
 
-Edytuj plik `models.csv` aby skonfigurować swoje modele:
+### 2. Model Configuration
+
+Create or edit the `models.csv` file to configure your models:
 
 ```csv
 model_name,url,auth_header,auth_value,think,description
-deepseek-coder:1.3b,http://192.168.188.108:8081/api/chat,,,false,DeepSeek Coder na lokalnym serwerze
-mistral:latest,http://192.168.188.212:11434/api/chat,,,false,Mistral Latest na Ollama
+mistral:latest,http://localhost:11434/api/chat,,,false,Mistral Latest on Ollama
+llama3:8b,http://localhost:11434/api/chat,,,false,Llama 3 8B
 gpt-4,https://api.openai.com/v1/chat/completions,Authorization,Bearer sk-...,false,OpenAI GPT-4
 ```
 
-**Kolumny w CSV:**
-- `model_name` - nazwa modelu
-- `url` - endpoint API
-- `auth_header` - nagłówek autoryzacji (opcjonalny)
-- `auth_value` - wartość autoryzacji (opcjonalny)
-- `think` - czy model obsługuje parametr "think" (true/false)
-- `description` - opis modelu
+**CSV Columns:**
+- `model_name` - Name of the model (e.g., mistral:latest, gpt-4)
+- `url` - API endpoint URL
+- `auth_header` - Authorization header (if required, e.g., "Authorization")
+- `auth_value` - Authorization value (e.g., "Bearer your-api-key")
+- `think` - Whether the model supports "think" parameter (true/false)
+- `description` - Description of the model
 
-### 3. Uruchomienie testów
+### 3. Running Tests
 
+#### Basic Usage
 ```bash
-# Podstawowe testy wszystkich modeli
-python main.py
+# Run all tests with default configuration
+python -m allama.runner
 
-# Zaawansowane opcje
-python test_runner.py --benchmark
+# Run benchmark suite
+python -m allama.runner --benchmark
 
-# Test pojedynczego modelu
-python test_runner.py --single-model "deepseek-coder:1.3b"
+# Test a single model
+python -m allama.runner --single-model "mistral:latest"
 
-# Porównanie określonych modeli
-python test_runner.py --compare "mistral:latest" "deepseek-coder:1.3b"
+# Compare specific models
+python -m allama.runner --compare "mistral:latest" "llama3:8b"
+
+# Generate HTML report
+python -m allama.runner --output benchmark_report.html
 ```
 
-## 📊 Metryki Oceny
+## 🛠️ Usage Examples
 
-System ocenia wygenerowany kod według następujących kryteriów:
+### Using Makefile (recommended)
+```bash
+# Run tests
+make test
 
-### Podstawowe metryki (automatyczne)
-- ✅ **Składnia poprawna** - czy kod kompiluje się bez błędów
-- ✅ **Wykonalność** - czy kod uruchamia się bez błędów runtime
-- ✅ **Słowa kluczowe** - czy kod zawiera oczekiwane elementy z promptu
+# Run benchmark
+make benchmark
 
-### Metryki jakości kodu
-- 📝 **Definicje funkcji/klas** - poprawna struktura kodu
-- 🛡️ **Obsługa błędów** - try/catch, walidacja inputów
-- 📚 **Dokumentacja** - docstringi, komentarze
-- 📦 **Importy** - właściwe użycie bibliotek
-- 📏 **Długość kodu** - rozsądna ilość linii
+# Test a single model
+make single-model
 
-### System punktowy
-- Składnia poprawna: **3 punkty**
-- Wykonuje się bez błędów: **2 punkty**  
-- Zawiera oczekiwane elementy: **2 punkty**
-- Ma definicje funkcji/klas: **1 punkt**
-- Ma obsługę błędów: **1 punkt**
-- Ma dokumentację: **1 punkt**
-- **Maksymalnie: 10 punktów**
+# Generate HTML report
+make report
+```
 
-## 🔧 Konfiguracja
+### Advanced Usage
+```bash
+# Run with custom configuration
+python -m allama.runner --config custom_config.json
 
-### Dostosowanie promptów
+# Test with a specific prompt
+python -m allama.runner --single-model "mistral:latest" --prompt-index 0
 
-Edytuj plik `config.py` aby zmienić prompty testowe:
+# Set request timeout (in seconds)
+python -m allama.runner --timeout 60
+```
+
+## 📊 Evaluation Metrics
+
+The system evaluates generated code based on the following criteria:
+
+### Basic Metrics (automatic)
+- ✅ **Correct Syntax** - whether the code compiles without errors
+- ✅ **Executability** - whether the code runs without runtime errors
+- ✅ **Keyword Matching** - whether the code contains expected elements from the prompt
+
+### Code Quality Metrics
+- 📝 **Function/Class Definitions** - proper code structure
+- 🛡️ **Error Handling** - try/except blocks, input validation
+- 📚 **Documentation** - docstrings, comments
+- 📦 **Imports** - proper library usage
+- 📏 **Code Length** - reasonable number of lines
+
+### Scoring System
+- Correct Syntax: **3 points**
+- Runs without errors: **2 points**
+- Contains expected elements: **2 points**
+- Has function/class definitions: **1 point**
+- Has error handling: **1 point**
+- Has documentation: **1 point**
+- **Maximum: 10 points**
+
+## 🔧 Configuration
+
+### Customizing Prompts
+
+Edit the `allama/config.py` file to modify test prompts:
 
 ```python
 TEST_PROMPTS = [
@@ -107,23 +147,30 @@ TEST_PROMPTS = [
 ]
 ```
 
-### Własna konfiguracja JSON
+### JSON Configuration
 
-# Test wszystkich modeli Ollama na lokalnym serwerze
-python test_runner.py --models ollama_models.csv
+Create a `custom_config.json` file for advanced configuration:
 
-# Porównanie tylko modeli kodujących
-python test_runner.py --compare "deepseek-coder:1.3b" "codellama:7b" --output coding_models_comparison.html
-
-# Szybki test pojedynczego modelu z jednym promptem
-python test_runner.py --single-model "mistral:latest" --prompt-index 0 --output quick_test.html
+```json
+{
+    "test_prompts": [
+        {
+            "name": "Custom Test",
+            "prompt": "Your custom prompt here..."
+        }
+    ],
+    "timeouts": {
+        "request_timeout": 30,
+        "execution_timeout": 5
+    }
+}
 ```
 
-## 🔌 Integracja z Różnymi API
+## 🔌 API Integration Examples
 
-### Ollama (lokalny)
+### Ollama (local)
 ```csv
-llama3.2:3b,http://localhost:11434/api/chat,,,false,Llama 3.2
+llama3:8b,http://localhost:11434/api/chat,,,false,Llama 3 8B
 ```
 
 ### OpenAI API
@@ -136,9 +183,58 @@ gpt-4,https://api.openai.com/v1/chat/completions,Authorization,Bearer sk-your-ke
 claude-3,https://api.anthropic.com/v1/messages,x-api-key,your-key,false,Claude 3
 ```
 
-### Lokalny serwer
+### Local Server
 ```csv
-local-model,http://192.168.1.100:8080/generate,,,false,Lokalny model
+local-model,http://localhost:8080/generate,,,false,Local Model
 ```
 
-## 📁 Struktura Projek
+## 📁 Project Structure
+
+```
+allama/
+├── allama/               # Main package
+│   ├── __init__.py      # Package initialization
+│   ├── config.py        # Default configuration and prompts
+│   ├── main.py          # Main module
+│   └── runner.py        # Test runner implementation
+├── tests/               # Test files
+│   └── test_allama.py   # Unit tests
+├── models.csv           # Model configurations
+├── pyproject.toml       # Project metadata and dependencies
+├── Makefile             # Common tasks
+└── README.md            # This file
+```
+
+## 📈 Example Output
+
+After running the benchmark, you'll get:
+
+1. **Console Output**: Summary of test results
+2. **HTML Report**: Detailed report with code examples and metrics
+3. **CSV/JSON**: Raw data for further analysis
+
+## 🚀 Getting Help
+
+If you encounter any issues or have questions:
+
+1. Check the [issues](https://github.com/wronai/allama/issues) page
+2. Create a new issue with detailed information about your problem
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on how to contribute to this project.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Thanks to all the open-source projects that made this possible
+- Special thanks to the Ollama team for their amazing work
+
+---
+
+<div align="center">
+  Made with ❤️ by the Allama team
+</div>
