@@ -11,8 +11,8 @@ from datetime import datetime
 from typing import List, Dict, Any
 import logging
 
-from main import LLMTester
-from config import TEST_PROMPTS, EVALUATION_WEIGHTS, TIMEOUTS
+from allama.main import LLMTester
+from allama.config import TEST_PROMPTS, EVALUATION_WEIGHTS, TIMEOUTS
 
 # Konfiguracja logowania
 logging.basicConfig(
