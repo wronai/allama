@@ -61,36 +61,54 @@ gpt-4,https://api.openai.com/v1/chat/completions,Authorization,Bearer sk-...,fal
 #### Basic Usage
 ```bash
 # Run all tests with default configuration
-python -m allama.runner
+python -m allama.main
 
 # Run benchmark suite
-python -m allama.runner --benchmark
+python -m allama.main --benchmark
+
+# Test specific models
+python -m allama.main --models "mistral:latest,llama3.2:3b,gemma2:2b"
 
 # Test a single model
-python -m allama.runner --single-model "mistral:latest"
+python -m allama.main --single-model "mistral:latest"
 
 # Compare specific models
-python -m allama.runner --compare "mistral:latest" "llama3:8b"
+python -m allama.main --compare "mistral:latest" "llama3.2:3b"
 
 # Generate HTML report
-python -m allama.runner --output benchmark_report.html
+python -m allama.main --output benchmark_report.html
+
+# Run with verbose output
+python -m allama.main --verbose
 ```
 
 ## 🛠️ Usage Examples
 
 ### Using Makefile (recommended)
 ```bash
+# Install dependencies and setup
+make install
+
 # Run tests
 make test
 
-# Run benchmark
+# Run all tests including end-to-end
+make test-all
+
+# Run benchmark suite
 make benchmark
 
-# Test a single model
+# Test a single model (set MODEL=name)
 make single-model
 
 # Generate HTML report
 make report
+
+# Run code formatters
+make format
+
+# Run linters
+make lint
 ```
 
 ### Advanced Usage
