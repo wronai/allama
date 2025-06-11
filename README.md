@@ -1,10 +1,10 @@
 ![allama-logo.svg](allama-logo.svg)
 
-# Allama - LLM Testing and Benchmarking Suite 🧪
+# Allama - LLM Testing and Benchmarking Suite 
 
 A comprehensive testing and benchmarking suite for Large Language Models (LLMs) focused on Python code generation. The project enables automatic quality assessment of generated code through various metrics and generates detailed HTML reports.
 
-## ✨ Features
+## Features
 
 - **Automated Testing** of multiple LLM models with configurable prompts
 - **Code Quality Assessment** - syntax checking, execution, style, and functionality
@@ -14,7 +14,7 @@ A comprehensive testing and benchmarking suite for Large Language Models (LLMs) 
 - **Multiple API Support** - Ollama, local servers, cloud services
 - **Model Ranking** based on performance and quality metrics
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Installation
 
@@ -82,7 +82,7 @@ python -m allama.main --output benchmark_report.html
 python -m allama.main --verbose
 ```
 
-## 🛠️ Usage Examples
+## Usage Examples
 
 ### Using Makefile (recommended)
 ```bash
@@ -123,21 +123,21 @@ python -m allama.runner --single-model "mistral:latest" --prompt-index 0
 python -m allama.runner --timeout 60
 ```
 
-## 📊 Evaluation Metrics
+## Evaluation Metrics
 
 The system evaluates generated code based on the following criteria:
 
 ### Basic Metrics (automatic)
-- ✅ **Correct Syntax** - whether the code compiles without errors
-- ✅ **Executability** - whether the code runs without runtime errors
-- ✅ **Keyword Matching** - whether the code contains expected elements from the prompt
+- Correct Syntax - whether the code compiles without errors
+- Executability - whether the code runs without runtime errors
+- Keyword Matching - whether the code contains expected elements from the prompt
 
 ### Code Quality Metrics
-- 📝 **Function/Class Definitions** - proper code structure
-- 🛡️ **Error Handling** - try/except blocks, input validation
-- 📚 **Documentation** - docstrings, comments
-- 📦 **Imports** - proper library usage
-- 📏 **Code Length** - reasonable number of lines
+- Function/Class Definitions - proper code structure
+- Error Handling - try/except blocks, input validation
+- Documentation - docstrings, comments
+- Imports - proper library usage
+- Code Length - reasonable number of lines
 
 ### Scoring System
 - Correct Syntax: **3 points**
@@ -148,7 +148,7 @@ The system evaluates generated code based on the following criteria:
 - Has documentation: **1 point**
 - **Maximum: 10 points**
 
-## 🔧 Configuration
+## Configuration
 
 ### Customizing Prompts
 
@@ -184,7 +184,16 @@ Create a `custom_config.json` file for advanced configuration:
 }
 ```
 
-## 🔌 API Integration Examples
+## Ansible Configuration
+
+Create `tests/ansible/inventory.ini` with:
+
+```ini
+[all]
+localhost ansible_connection=local
+```
+
+## API Integration Examples
 
 ### Ollama (local)
 ```csv
@@ -206,7 +215,7 @@ claude-3,https://api.anthropic.com/v1/messages,x-api-key,your-key,false,Claude 3
 local-model,http://localhost:8080/generate,,,false,Local Model
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 allama/
@@ -223,7 +232,7 @@ allama/
 └── README.md            # This file
 ```
 
-## 📈 Example Output
+## Example Output
 
 After running the benchmark, you'll get:
 
@@ -231,22 +240,22 @@ After running the benchmark, you'll get:
 2. **HTML Report**: Detailed report with code examples and metrics
 3. **CSV/JSON**: Raw data for further analysis
 
-## 🚀 Getting Help
+## Getting Help
 
 If you encounter any issues or have questions:
 
 1. Check the [issues](https://github.com/wronai/allama/issues) page
 2. Create a new issue with detailed information about your problem
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on how to contribute to this project.
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Thanks to all the open-source projects that made this possible
 - Special thanks to the Ollama team for their amazing work

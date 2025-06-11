@@ -1,4 +1,3 @@
-
 .PHONY: help install dev test test-e2e test-coverage test-health lint format clean build publish demo-interactive demo-script infra-setup infra-deploy check-env setup docs docker-test docker-shell docker-clean docker-build
 
 # Help target to show available commands
@@ -33,7 +32,7 @@ dev:
 	pip install -e .[dev]
 
 # Test locally (requires local Python environment)
-test:
+test: install
 	pytest tests/ -v
 
 # Run end-to-end tests (requires Ollama service running)
@@ -87,7 +86,7 @@ infra-stop:
 
 # Deploy infrastructure using Ansible
 infra-deploy: check-ansible
-	ansible-playbook -i tests/ansible/inventory.ini tests/ansible/playbook.yml
+	ansible-playbook -i tests/ansible/inventory.yml tests/ansible/playbook.yml
 
 # Check if Ansible is installed
 check-ansible:
@@ -123,7 +122,7 @@ clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	find . -name "*.py,cover" -delete || true
 	find . -name "coverage.xml" -delete || true
-	find . -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
 
 version:
 	@echo "Updating version in pyproject.toml"
@@ -262,3 +261,6 @@ demo-interactive:
 	@echo "   gollm generate --fast 'quick function'  # Fast generation"
 	@echo "   gollm direct generate 'direct api call'  # Direct API access"
 	@echo "   gollm --help             # Show all commands"
+
+compare:
+	python -m allama.main --compare $(MODEL1) $(MODEL2)
