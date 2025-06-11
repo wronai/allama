@@ -12,7 +12,10 @@ from typing import List, Dict, Any
 import logging
 
 from allama.main import LLMTester
-from allama.config import TEST_PROMPTS, EVALUATION_WEIGHTS, TIMEOUTS
+from allama.config_loader import get_config
+from allama.open_report import open_report_in_browser
+from allama.report_generator import ReportGenerator
+from allama.publisher import ResultPublisher
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -29,10 +32,22 @@ logger = logging.getLogger(__name__)
 class AdvancedLLMTester(LLMTester):
     """Rozszerzona wersja testera z dodatkowymi funkcjami"""
 
-    def __init__(self, models_file: str = 'models.csv', config_file: str = None):
-        super().__init__(models_file)
-        self.config_file = config_file
-        self.load_custom_config()
+    def __init__(self, models_file: str = 'models.csv', config_path: str = None):
+        super().__init__(models_file, config_path)
+
+    def load_prompts(self):
+        """Ładuje prompty z pliku JSON"""
+        try:
+            with open(self.prompts_file, 'r', encoding='utf-8') as f:
+                prompts = json.load(f)
+                logger.info(f"Załadowano {len(prompts)} promptów z {self.prompts_file}")
+                return prompts
+        except FileNotFoundError:
+            logger.error(f"Plik z promptami nie został znaleziony: {self.prompts_file}")
+            return []
+        except Exception as e:
+            logger.error(f"Błąd podczas ładowania promptów: {e}")
+            return []
 
     def load_custom_config(self):
         """Ładuje niestandardową konfigurację z pliku JSON"""
@@ -43,8 +58,8 @@ class AdvancedLLMTester(LLMTester):
 
                 # Zastąp domyślne prompty jeśli są w konfiguracji
                 if 'test_prompts' in config:
-                    self.test_prompts = [p['prompt'] for p in config['test_prompts']]
-                    logger.info(f"Załadowano {len(self.test_prompts)} promptów z konfiguracji")
+                    self.test_prompts = config['test_prompts']
+                    logger.info(f"Załadowano {len(self.test_prompts)} promptów z pliku konfiguracyjnego {self.config_file}")
 
                 # Aktualizuj inne ustawienia
                 if 'timeouts' in config:
@@ -53,8 +68,8 @@ class AdvancedLLMTester(LLMTester):
             except Exception as e:
                 logger.error(f"Błąd podczas ładowania konfiguracji: {e}")
         else:
-            # Użyj promptów z config.py
-            self.test_prompts = [p['prompt'] for p in TEST_PROMPTS]
+            # Użyj promptów z pliku JSON
+            pass
 
     def run_single_model_test(self, model_name: str, prompt_index: int = None):
         """Testuje pojedynczy model z opcjonalnym pojedynczym promptem"""
@@ -65,7 +80,7 @@ class AdvancedLLMTester(LLMTester):
             logger.error(f"Model {model_name} nie został znaleziony w pliku konfiguracji")
             return
 
-        prompts_to_test = [self.test_prompts[prompt_index]] if prompt_index is not None else self.test_prompts
+        prompts_to_test = [self.test_prompts[prompt_index]] if prompt_index is not None and self.test_prompts else self.test_prompts
 
         logger.info(f"Testowanie modelu {model_name} z {len(prompts_to_test)} promptami")
 
@@ -75,7 +90,7 @@ class AdvancedLLMTester(LLMTester):
 
     def run_benchmark_suite(self):
         """Uruchamia standardowy zestaw testów benchmarkowych"""
-        logger.info("🏁 Uruchamianie zestawu testów benchmarkowych...")
+        logger.info(" Uruchamianie zestawu testów benchmarkowych...")
 
         # Wyczyść poprzednie wyniki
         self.results = []
@@ -189,11 +204,14 @@ class AdvancedLLMTester(LLMTester):
         except Exception as e:
             logger.error(f"Błąd podczas eksportu do JSON: {e}")
 
-    def compare_models(self, model_names: List[str], output_file: str = None):
+    def compare_models(self, model_names: List[str], output_file: str = None, json_output: str = None):
         """Porównuje określone modele i generuje raport porównawczy"""
         if not output_file:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             output_file = f'model_comparison_{timestamp}.html'
+            
+        if not json_output:
+            json_output = output_file.replace('.html', '.json')
 
         # Filtruj wyniki dla określonych modeli
         filtered_results = [r for r in self.results if r['model_name'] in model_names]
@@ -202,168 +220,36 @@ class AdvancedLLMTester(LLMTester):
             logger.error("Brak wyników dla określonych modeli")
             return
 
-        # Generuj raport porównawczy
-        html_content = self._generate_comparison_report(filtered_results, model_names)
-
+        # Zapisz wyniki do pliku JSON
         try:
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-            logger.info(f"Raport porównawczy zapisany do: {output_file}")
+            with open(json_output, 'w', encoding='utf-8') as f:
+                json.dump(filtered_results, f, indent=2)
+            logger.info(f"Wyniki porównania zapisane do JSON: {json_output}")
         except Exception as e:
-            logger.error(f"Błąd podczas zapisywania raportu porównawczego: {e}")
+            logger.error(f"Błąd podczas zapisywania wyników do JSON: {e}")
 
-    def _generate_comparison_report(self, results: List[Dict], model_names: List[str]) -> str:
-        """Generuje HTML dla raportu porównawczego"""
-        # Oblicz statystyki dla każdego modelu
-        model_stats = {}
-        for model in model_names:
-            model_results = [r for r in results if r['model_name'] == model]
-            if model_results:
-                successful = [r for r in model_results if r['success']]
-
-                scores = []
-                for result in successful:
-                    if 'evaluation' in result:
-                        eval_data = result['evaluation']
-                        score = 0
-                        if eval_data.get('syntax_valid'): score += 3
-                        if eval_data.get('runs_without_error'): score += 2
-                        if eval_data.get('contains_expected_keywords'): score += 2
-                        if eval_data.get('quality_metrics', {}).get('has_function_def'): score += 1
-                        if eval_data.get('quality_metrics', {}).get('has_error_handling'): score += 1
-                        if eval_data.get('quality_metrics', {}).get('has_docstring'): score += 1
-                        scores.append(score)
-
-                model_stats[model] = {
-                    'total_tests': len(model_results),
-                    'successful_tests': len(successful),
-                    'success_rate': len(successful) / len(model_results) * 100,
-                    'avg_score': sum(scores) / len(scores) if scores else 0,
-                    'avg_response_time': sum(r['response_time'] for r in successful) / len(
-                        successful) if successful else 0
-                }
-
-        # Generuj HTML
-        html = f"""
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-    <meta charset="UTF-8">
-    <title>Porównanie Modeli LLM</title>
-    <style>
-        body {{ font-family: Arial, sans-serif; margin: 20px; }}
-        .comparison-table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-        .comparison-table th, .comparison-table td {{ border: 1px solid #ddd; padding: 12px; text-align: center; }}
-        .comparison-table th {{ background-color: #f2f2f2; }}
-        .best {{ background-color: #d4edda; font-weight: bold; }}
-        .chart {{ margin: 20px 0; }}
-    </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-</head>
-<body>
-    <h1>📊 Porównanie Modeli LLM</h1>
-    <p><strong>Data:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-
-    <h2>🏆 Tabela Porównawcza</h2>
-    <table class="comparison-table">
-        <tr>
-            <th>Model</th>
-            <th>Liczba Testów</th>
-            <th>Testy Udane</th>
-            <th>Wskaźnik Sukcesu (%)</th>
-            <th>Średni Wynik</th>
-            <th>Średni Czas Odpowiedzi (s)</th>
-        </tr>
-"""
-
-        # Znajdź najlepsze wyniki dla podświetlenia
-        best_success_rate = max(stats['success_rate'] for stats in model_stats.values())
-        best_avg_score = max(stats['avg_score'] for stats in model_stats.values())
-        best_response_time = min(
-            stats['avg_response_time'] for stats in model_stats.values() if stats['avg_response_time'] > 0)
-
-        for model, stats in model_stats.items():
-            success_class = "best" if stats['success_rate'] == best_success_rate else ""
-            score_class = "best" if stats['avg_score'] == best_avg_score else ""
-            time_class = "best" if stats['avg_response_time'] == best_response_time else ""
-
-            html += f"""
-        <tr>
-            <td><strong>{model}</strong></td>
-            <td>{stats['total_tests']}</td>
-            <td>{stats['successful_tests']}</td>
-            <td class="{success_class}">{stats['success_rate']:.1f}%</td>
-            <td class="{score_class}">{stats['avg_score']:.1f}/10</td>
-            <td class="{time_class}">{stats['avg_response_time']:.2f}s</td>
-        </tr>
-"""
-
-        html += """
-    </table>
-
-    <h2>📈 Wykres Porównawczy</h2>
-    <div class="chart">
-        <canvas id="comparisonChart" width="400" height="200"></canvas>
-    </div>
-
-    <script>
-        const ctx = document.getElementById('comparisonChart').getContext('2d');
-        const chart = new Chart(ctx, {
-            type: 'radar',
-            data: {
-"""
-
-        # Dane dla wykresu radarowego
-        html += f"labels: ['Wskaźnik Sukcesu', 'Średni Wynik', 'Szybkość (odwrócona)'],"
-        html += "datasets: ["
-
-        colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']
-        for i, (model, stats) in enumerate(model_stats.items()):
-            color = colors[i % len(colors)]
-            # Normalizuj szybkość (mniejszy czas = lepiej, więc odwracamy)
-            speed_score = 100 - min(stats['avg_response_time'] * 10, 100) if stats['avg_response_time'] > 0 else 100
-
-            html += f"""
-                {{
-                    label: '{model}',
-                    data: [{stats['success_rate']}, {stats['avg_score'] * 10}, {speed_score}],
-                    borderColor: '{color}',
-                    backgroundColor: '{color}33',
-                    pointBackgroundColor: '{color}',
-                }},"""
-
-        html += """
-            ]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                r: {
-                    beginAtZero: true,
-                    max: 100
-                }
-            }
-        }
-    });
-    </script>
-</body>
-</html>
-"""
-
-        return html
+        # Generuj raport porównawczy HTML używając ReportGenerator
+        report_generator = ReportGenerator(self.config)
+        report_generator.generate_html_report(filtered_results, output_file=output_file, json_file=json_output)
+        logger.info(f"Raport porównawczy zapisany do: {output_file}")
 
 
 def main():
     """Główna funkcja z argumentami wiersza poleceń"""
     parser = argparse.ArgumentParser(description='TestLLM - Zaawansowany tester modeli LLM')
     parser.add_argument('--models', '-m', default='models.csv', help='Plik CSV z konfiguracją modeli')
-    parser.add_argument('--config', '-c', help='Plik JSON z niestandardową konfiguracją')
+    parser.add_argument('--config', '-c', help='Plik JSON z niestandardową konfiguracją (JSON lub YAML)')
     parser.add_argument('--single-model', help='Testuj tylko określony model')
     parser.add_argument('--prompt-index', type=int, help='Indeks pojedynczego promptu do testowania (0-based)')
     parser.add_argument('--benchmark', action='store_true', help='Uruchom pełny zestaw testów benchmarkowych')
     parser.add_argument('--compare', nargs='+', help='Porównaj określone modele')
-    parser.add_argument('--output', '-o', help='Nazwa pliku wyjściowego')
+    parser.add_argument('--output', '-o', help='Nazwa pliku wyjściowego HTML')
+    parser.add_argument('--json-output', help='Nazwa pliku wyjściowego JSON')
     parser.add_argument('--verbose', '-v', action='store_true', help='Szczegółowe logowanie')
+    parser.add_argument('--no-browser', action='store_true', help='Nie otwieraj automatycznie raportu w przeglądarce')
+    parser.add_argument('--publish', action='store_true', help='Publikuj wyniki na serwerze')
+    parser.add_argument('--server-url', default='https://allama.sapletta.com/upload.php', 
+                      help='URL serwera do publikowania wyników')
 
     args = parser.parse_args()
 
@@ -374,15 +260,23 @@ def main():
     tester = AdvancedLLMTester(args.models, args.config)
 
     try:
+        output_file = None
+        json_output = None
+        
         if args.single_model:
             # Test pojedynczego modelu
             tester.run_single_model_test(args.single_model, args.prompt_index)
-            output_file = args.output or f'single_model_test_{args.single_model.replace(":", "_")}.html'
-            tester.generate_html_report(output_file)
+            output_file = args.output or f'allama.html'
+            json_output = args.json_output or 'allama.json'
+            tester.generate_html_report(output_file, json_output)
 
         elif args.benchmark:
             # Pełny benchmark
             tester.run_benchmark_suite()
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_file = args.output or 'allama.html'
+            json_output = args.json_output or 'allama.json'
+            tester.generate_html_report(output_file, json_output)
 
         elif args.compare:
             # Najpierw uruchom testy jeśli nie ma wyników
@@ -390,21 +284,39 @@ def main():
                 tester.run_tests()
 
             # Porównaj modele
-            output_file = args.output or 'model_comparison.html'
-            tester.compare_models(args.compare, output_file)
+            output_file = args.output or 'allama.html'
+            json_output = args.json_output or 'allama.json'
+            tester.compare_models(args.compare, output_file, json_output)
 
         else:
             # Standardowe testy
             tester.run_tests()
-            output_file = args.output or 'llm_test_results.html'
-            tester.generate_html_report(output_file)
+            output_file = args.output or 'allama.html'
+            json_output = args.json_output or 'allama.json'
+            tester.generate_html_report(output_file, json_output)
 
-        logger.info("✅ Testowanie zakończone pomyślnie!")
+        logger.info(" Testowanie zakończone pomyślnie!")
+        
+        # Automatycznie otwórz raport w przeglądarce, jeśli został wygenerowany i opcja nie jest wyłączona
+        if output_file and not args.no_browser:
+            open_report_in_browser(output_file)
+            
+        # Publikuj wyniki na serwerze, jeśli opcja jest włączona
+        if args.publish and json_output:
+            publisher = ResultPublisher(server_url=args.server_url)
+            result = publisher.publish_results(json_output)
+            
+            if result.get('success'):
+                logger.info(f"Wyniki zostały pomyślnie opublikowane na serwerze")
+                if 'data' in result and 'url' in result['data']:
+                    logger.info(f"URL wyników: {result['data']['url']}")
+            else:
+                logger.error(f"Błąd podczas publikowania wyników: {result.get('error', 'Nieznany błąd')}")
 
     except KeyboardInterrupt:
-        logger.info("⏹️  Testowanie przerwane przez użytkownika")
+        logger.info("  Testowanie przerwane przez użytkownika")
     except Exception as e:
-        logger.error(f"❌ Błąd podczas testowania: {e}")
+        logger.error(f"Błąd podczas testowania: {e}")
         sys.exit(1)
 
 

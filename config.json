@@ -1,0 +1,34 @@
+{
+    "prompts_file": "prompts.json",
+    "evaluation_weights": {
+        "syntax_valid": 3.0,
+        "runs_without_error": 2.5,
+        "contains_expected_keywords": 2.0,
+        "has_function_def": 1.5,
+        "has_error_handling": 1.0,
+        "has_docstring": 1.0,
+        "has_imports": 0.5,
+        "code_length_reasonable": 0.5
+    },
+    "timeouts": {
+        "request_timeout": 60,
+        "execution_timeout": 10,
+        "delay_between_requests": 1
+    },
+    "report_config": {
+        "title": "Raport Testowania Modeli LLM - Generowanie Kodu",
+        "include_raw_responses": true,
+        "include_execution_output": true,
+        "max_code_display_lines": 50,
+        "show_detailed_metrics": true
+    },
+    "colors": {
+        "success": "#28a745",
+        "error": "#dc3545",
+        "warning": "#ffc107",
+        "info": "#17a2b8",
+        "primary": "#007bff",
+        "light": "#f8f9fa",
+        "dark": "#343a40"
+    }
+}

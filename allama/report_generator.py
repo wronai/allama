@@ -50,21 +50,63 @@ class ReportGenerator:
             logger.error("Brak wyników do zapisania do JSON")
             return
         
+        # Utwórz folder dla danych, jeśli nie istnieje
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        data_dir = os.path.join(os.path.dirname(os.path.abspath(output_file)), "data")
+        test_dir = os.path.join(data_dir, f"test_{timestamp}")
+        
+        try:
+            os.makedirs(test_dir, exist_ok=True)
+        except Exception as e:
+            logger.error(f"Nie można utworzyć katalogu dla danych: {e}")
+            # Kontynuuj z zapisem do głównego katalogu
+            test_dir = os.path.dirname(os.path.abspath(output_file))
+        
+        # Zbierz informacje o promptach
+        prompts_info = {}
+        for result in results:
+            prompt_name = result.get('prompt_name', 'Unknown')
+            if prompt_name not in prompts_info:
+                prompts_info[prompt_name] = {
+                    'prompt_text': result.get('prompt', ''),
+                    'description': result.get('prompt_description', ''),
+                    'expected_keywords': result.get('expected_keywords', [])
+                }
+        
         # Przygotuj dane do zapisania
         export_data = {
             'timestamp': datetime.now().isoformat(),
             'models_tested': list(set(r['model_name'] for r in results)),
             'total_tests': len(results),
             'successful_tests': sum(1 for r in results if r['success']),
+            'prompts_info': prompts_info,
             'results': results
         }
         
+        # Zapisz do głównego pliku JSON
         try:
             with open(output_file, 'w', encoding='utf-8') as f:
                 json.dump(export_data, f, indent=2, ensure_ascii=False)
             logger.info(f"Wyniki zapisane do pliku JSON: {output_file}")
         except Exception as e:
             logger.error(f"Błąd podczas zapisywania wyników do JSON: {e}")
+        
+        # Zapisz kopię w katalogu z danymi
+        test_json_file = os.path.join(test_dir, "allama.json")
+        try:
+            with open(test_json_file, 'w', encoding='utf-8') as f:
+                json.dump(export_data, f, indent=2, ensure_ascii=False)
+            logger.info(f"Kopia wyników zapisana w katalogu danych: {test_json_file}")
+            
+            # Zapisz również informacje o promptach w osobnym pliku dla lepszej czytelności
+            prompts_file = os.path.join(test_dir, "prompts.json")
+            with open(prompts_file, 'w', encoding='utf-8') as f:
+                json.dump(prompts_info, f, indent=2, ensure_ascii=False)
+            
+            return test_dir
+        except Exception as e:
+            logger.error(f"Błąd podczas zapisywania kopii wyników: {e}")
+            return None
 
     def _calculate_statistics(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -260,8 +302,8 @@ class ReportGenerator:
             logger.error("Brak wyników do wygenerowania raportu")
             return
 
-        # Zapisz wyniki do pliku JSON
-        self.save_results_to_json(results, json_file)
+        # Zapisz wyniki do pliku JSON i uzyskaj ścieżkę do katalogu danych
+        test_dir = self.save_results_to_json(results, json_file)
         
         # Oblicz statystyki
         stats = self._calculate_statistics(results)
@@ -282,12 +324,24 @@ class ReportGenerator:
         for model_name, model_results in models_results.items():
             model_sections += self._generate_model_section(model_name, model_results)
         
+        # Zbierz informacje o promptach
+        prompts_info = {}
+        for result in results:
+            prompt_name = result.get('prompt_name', 'Unknown')
+            if prompt_name not in prompts_info:
+                prompts_info[prompt_name] = {
+                    'prompt_text': result.get('prompt', ''),
+                    'description': result.get('prompt_description', ''),
+                    'expected_keywords': result.get('expected_keywords', [])
+                }
+        
         # Przygotuj dane JSON do osadzenia w HTML
         export_data = {
             'timestamp': datetime.now().isoformat(),
             'models_tested': list(set(r['model_name'] for r in results)),
             'total_tests': len(results),
             'successful_tests': sum(1 for r in results if r['success']),
+            'prompts_info': prompts_info,
             'results': results
         }
         
@@ -303,12 +357,28 @@ class ReportGenerator:
             ranking_table=self._generate_ranking_table(stats),
             model_sections=model_sections,
             colors=self.colors,
-            test_results_json=json.dumps(export_data)
+            test_results_json=json.dumps(export_data),
+            prompts_info=prompts_info
         )
 
+        # Zapisz raport HTML w głównym katalogu
         try:
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(html_content)
             logger.info(f"Raport HTML zapisany do {output_file}")
         except Exception as e:
             logger.error(f"Błąd podczas zapisywania raportu: {e}")
+            
+        # Jeśli mamy katalog danych, zapisz również tam kopię raportu
+        if test_dir:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            test_html_file = os.path.join(test_dir, f"allama.html")
+            try:
+                with open(test_html_file, 'w', encoding='utf-8') as f:
+                    f.write(html_content)
+                logger.info(f"Kopia raportu HTML zapisana w katalogu danych: {test_html_file}")
+                return test_html_file
+            except Exception as e:
+                logger.error(f"Błąd podczas zapisywania kopii raportu HTML: {e}")
+                
+        return output_file

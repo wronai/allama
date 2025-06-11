@@ -144,6 +144,26 @@ The HTML report allows you to:
 
 To view the report, simply open `allama.html` in any modern web browser after running tests.
 
+### Publishing Results Online
+
+Allama allows you to publish your benchmark results to a central repository at `allama.sapletta.com`, making it easy to share and compare results with others:
+
+```bash
+# Run benchmark and publish results
+allama --benchmark --publish
+
+# Specify a custom server URL
+allama --benchmark --publish --server-url https://your-server.com/upload.php
+```
+
+The publishing system includes:
+- **Rate limiting**: Maximum 3 uploads per day per IP address
+- **Request throttling**: Minimum 1 second between requests
+- **Automatic organization**: Results are stored in timestamped directories
+- **Web interface**: Browse and compare published benchmarks
+
+After publishing, you'll receive a URL where you can view your results online.
+
 ## Usage
 
 ### Using Makefile (recommended)

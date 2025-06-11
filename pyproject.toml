@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "allama"
-version = "0.1.12"
+version = "0.1.16"
 description = "A Python package for interacting with AI models"
 authors = ["Tom Sapletta <info@softreck.dev>"]
 license = "MIT"
@@ -8,7 +8,7 @@ readme = "README.md"
 packages = [{include = "allama"}]
 
 [tool.poetry.scripts]
-allama = "allama.main:main"
+allama = "allama.allama:main"
 
 [tool.poetry.dependencies]
 python = "^3.12"

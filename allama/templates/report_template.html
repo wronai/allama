@@ -66,6 +66,7 @@
         <div class="tab active" onclick="switchTab('ranking')">Ranking</div>
         <div class="tab" onclick="switchTab('details')">Szczegóły</div>
         <div class="tab" onclick="switchTab('compare')">Porównanie kodu</div>
+        <div class="tab" onclick="switchTab('prompts')">Prompty</div>
     </div>
 
     <div id="ranking" class="tab-content active">
@@ -91,6 +92,38 @@
         </div>
         <button id="compareBtn" class="compare-btn" onclick="compareCode()">Porównaj kod</button>
         <div id="diffOutput" class="diff-container"></div>
+    </div>
+    
+    <div id="prompts" class="tab-content">
+        <h2>📝 Informacje o Promptach</h2>
+        <p>Poniżej znajdują się szczegółowe informacje o promptach użytych w tym benchmarku:</p>
+        <div id="promptsInfo">
+            {% for prompt_name, info in prompts_info.items() %}
+            <div class="prompt-info-card" style="margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
+                <h3>{{ prompt_name }}</h3>
+                <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                    <strong>Treść promptu:</strong>
+                    <pre style="white-space: pre-wrap; margin: 10px 0;">{{ info.prompt_text }}</pre>
+                </div>
+                {% if info.description %}
+                <div style="margin: 10px 0;">
+                    <strong>Opis:</strong>
+                    <p>{{ info.description }}</p>
+                </div>
+                {% endif %}
+                {% if info.expected_keywords %}
+                <div style="margin: 10px 0;">
+                    <strong>Oczekiwane słowa kluczowe:</strong>
+                    <ul>
+                        {% for keyword in info.expected_keywords %}
+                        <li>{{ keyword }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
     </div>
 </div>
 

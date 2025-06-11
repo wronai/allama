@@ -1,0 +1,14 @@
+[
+    {
+        "name": "Simple Addition Function",
+        "prompt": "Write a Python function called 'add_numbers' that takes two parameters (a, b) and returns their sum. Include a docstring and a simple test call.",
+        "expected_keywords": [
+            "def",
+            "add_numbers",
+            "return",
+            "a",
+            "b"
+        ],
+        "expected_behavior": "function_definition"
+    }
+]

@@ -18,6 +18,7 @@ from allama.evaluator import CodeEvaluator
 from allama.config_loader import get_config, ensure_config_files_exist
 from allama.report_generator import ReportGenerator
 from allama.open_report import open_report_in_browser
+from allama.publisher import ResultPublisher
 
 # Konfiguracja loggera
 logging.basicConfig(
@@ -199,11 +200,11 @@ class LLMTester:
 
         logger.info(f"Zakończono testowanie. Zebrano {len(self.results)} wyników")
 
-    def generate_html_report(self, output_file: str = 'allama.html', json_file: str = 'allama.json'):
+    def generate_html_report(self, output_file: str = 'allama.html', json_file: str = 'allama.json') -> str:
         """Generuje raport HTML z wynikami"""
         if not self.results:
             logger.error("Brak wyników do wygenerowania raportu")
-            return
+            return ""
 
         # Użyj ReportGenerator do generowania raportu
         report_generator = ReportGenerator(self.config)
@@ -212,6 +213,8 @@ class LLMTester:
             output_file=output_file,
             json_file=json_file
         )
+
+        return output_file
 
     def save_results_to_json(self, output_file: str = 'allama.json'):
         """Zapisuje wyniki testów do pliku JSON"""
@@ -236,7 +239,7 @@ class LLMTester:
             logger.error(f"Błąd podczas zapisywania wyników do JSON: {e}")
 
 
-def main():
+def main() -> str:
     """Główna funkcja programu"""
     parser = argparse.ArgumentParser(description="TestLLM - Testowanie modeli LLM")
     parser.add_argument(
@@ -266,17 +269,48 @@ def main():
         action='store_true',
         help="Nie otwieraj automatycznie raportu w przeglądarce"
     )
+    parser.add_argument(
+        '--publish',
+        action='store_true',
+        help="Publikuj wyniki na serwerze"
+    )
+    parser.add_argument(
+        '--server-url',
+        default='https://allama.sapletta.com/upload.php',
+        help="URL serwera do publikowania wyników"
+    )
     args = parser.parse_args()
 
     # Inicjalizuj i uruchom tester
     tester = LLMTester(models_file=args.models, config_path=args.config)
     tester.run_tests()
-    tester.generate_html_report(output_file=args.output, json_file=args.json_output)
+    report_path = tester.generate_html_report(output_file=args.output, json_file=args.json_output)
     
     # Automatycznie otwórz raport w przeglądarce, chyba że użytkownik wyłączył tę opcję
     if not args.no_browser:
-        open_report_in_browser(args.output)
+        open_report_in_browser(report_path)
+        
+    # Publikuj wyniki na serwerze, jeśli opcja jest włączona
+    if args.publish:
+        publisher = ResultPublisher(server_url=args.server_url)
+        result = publisher.publish_results(args.json_output)
+        
+        if result.get('success'):
+            logger.info(f"Wyniki zostały pomyślnie opublikowane na serwerze")
+            if 'data' in result and 'url' in result['data']:
+                logger.info(f"URL wyników: {result['data']['url']}")
+        else:
+            logger.error(f"Błąd podczas publikowania wyników: {result.get('error', 'Nieznany błąd')}")
+    
+    return report_path
 
 
 if __name__ == "__main__":
     main()
+else:
+    # Automatyczne uruchomienie benchmarku przy imporcie modułu
+    # To pozwala na uruchomienie benchmarku po użyciu komendy 'allama'
+    # Ale tylko jeśli moduł jest uruchamiany bezpośrednio jako skrypt
+    if os.environ.get('ALLAMA_AUTO_RUN', '0') == '1':
+        logger.info("Automatyczne uruchomienie benchmarku Allama")
+        main()
