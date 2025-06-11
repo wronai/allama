@@ -7,6 +7,13 @@
 <!-- Dodanie bibliotek diff2html -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css">
 <script src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html.min.js"></script>
+<!-- Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Allama wspólne komponenty -->
+<link rel="stylesheet" href="../static/css/allama-charts.css">
+<script src="../static/js/radar-chart.js"></script>
 <style>
     body { font-family: Arial, sans-serif; margin: 20px; background-color: {{ colors.light }}; }
     .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
@@ -67,6 +74,7 @@
         <div class="tab" onclick="switchTab('details')">Szczegóły</div>
         <div class="tab" onclick="switchTab('compare')">Porównanie kodu</div>
         <div class="tab" onclick="switchTab('prompts')">Prompty</div>
+        <div class="tab" onclick="switchTab('charts')">Wykresy</div>
     </div>
 
     <div id="ranking" class="tab-content active">
@@ -125,6 +133,30 @@
             {% endfor %}
         </div>
     </div>
+    
+    <div id="charts" class="tab-content">
+        <h2>📈 Wykresy Porównawcze</h2>
+        <p>Porównanie wydajności modeli na podstawie kluczowych metryk:</p>
+        
+        <div class="chart-container">
+            <canvas id="modelComparisonRadarChart" width="600" height="400"></canvas>
+        </div>
+        
+        <div class="stats-badges-container d-flex flex-wrap mt-3 mb-3">
+            <div class="stats-badge badge-primary">
+                <i class="bi bi-robot"></i> Modele: {{ models_count }}
+            </div>
+            <div class="stats-badge badge-info">
+                <i class="bi bi-list-check"></i> Testy: {{ tests_count }}
+            </div>
+            <div class="stats-badge badge-success">
+                <i class="bi bi-check-circle"></i> Udane: {{ successful_tests }}
+            </div>
+            <div class="stats-badge badge-warning">
+                <i class="bi bi-graph-up"></i> Sukces: {{ success_rate }}%
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -138,89 +170,112 @@
             // Dane są już załadowane z osadzonego JSON
             
             // Przygotuj dane modeli
-            const modelSelect1 = document.getElementById('model1');
-            const modelSelect2 = document.getElementById('model2');
+            const models = [];
+            const prompts = {};
             
-            // Wyczyść listy
-            modelSelect1.innerHTML = '';
-            modelSelect2.innerHTML = '';
-            
-            // Grupuj wyniki według modeli i promptów
             testResults.results.forEach(result => {
                 const modelName = result.model_name;
-                const promptName = result.prompt_name || 'Prompt ' + Math.random().toString(36).substring(7);
+                const promptName = result.prompt_name;
                 
+                if (!models.includes(modelName)) {
+                    models.push(modelName);
+                }
+                
+                if (!prompts[promptName]) {
+                    prompts[promptName] = [];
+                }
+                
+                if (!prompts[promptName].includes(modelName)) {
+                    prompts[promptName].push(modelName);
+                }
+                
+                // Zapisz dane modelu
                 if (!modelsData[modelName]) {
                     modelsData[modelName] = {};
-                    
-                    // Dodaj model do list wyboru
-                    const option1 = document.createElement('option');
-                    option1.value = modelName;
-                    option1.textContent = modelName;
-                    modelSelect1.appendChild(option1);
-                    
-                    const option2 = document.createElement('option');
-                    option2.value = modelName;
-                    option2.textContent = modelName;
-                    modelSelect2.appendChild(option2);
                 }
                 
-                if (result.generated_code) {
-                    modelsData[modelName][promptName] = result.generated_code;
-                }
+                modelsData[modelName][promptName] = result;
             });
             
-            // Inicjalizuj listy promptów
+            // Wypełnij listy rozwijane
+            fillModelSelects(models);
             updatePromptSelect();
+            
+            // Inicjalizuj wykres radarowy
+            initRadarChart();
         } catch (error) {
-            console.error('Błąd ładowania danych:', error);
-            document.getElementById('diffOutput').innerHTML = '<p class="error">Nie udało się załadować danych. Wystąpił błąd podczas przetwarzania.</p>';
+            console.error('Błąd podczas ładowania danych:', error);
         }
     }
-
-    // Aktualizacja list promptów na podstawie wybranych modeli
+    
+    // Funkcja do wypełniania list rozwijanych modeli
+    function fillModelSelects(models) {
+        const model1Select = document.getElementById('model1');
+        const model2Select = document.getElementById('model2');
+        
+        model1Select.innerHTML = '';
+        model2Select.innerHTML = '';
+        
+        models.forEach(model => {
+            const option1 = document.createElement('option');
+            option1.value = model;
+            option1.textContent = model;
+            model1Select.appendChild(option1);
+            
+            const option2 = document.createElement('option');
+            option2.value = model;
+            option2.textContent = model;
+            model2Select.appendChild(option2);
+        });
+        
+        // Ustaw domyślnie różne modele, jeśli są dostępne
+        if (models.length > 1) {
+            model2Select.selectedIndex = 1;
+        }
+    }
+    
+    // Funkcja do aktualizacji list rozwijanych promptów
     function updatePromptSelect() {
         const model1 = document.getElementById('model1').value;
         const model2 = document.getElementById('model2').value;
+        const prompt1Select = document.getElementById('prompt1');
+        const prompt2Select = document.getElementById('prompt2');
         
-        const promptSelect1 = document.getElementById('prompt1');
-        const promptSelect2 = document.getElementById('prompt2');
+        prompt1Select.innerHTML = '';
+        prompt2Select.innerHTML = '';
         
-        promptSelect1.innerHTML = '';
-        promptSelect2.innerHTML = '';
+        // Znajdź prompty dostępne dla obu modeli
+        const model1Prompts = Object.keys(modelsData[model1] || {});
+        const model2Prompts = Object.keys(modelsData[model2] || {});
+        const commonPrompts = model1Prompts.filter(p => model2Prompts.includes(p));
         
-        if (model1 && modelsData[model1]) {
-            Object.keys(modelsData[model1]).forEach(promptName => {
-                const option = document.createElement('option');
-                option.value = promptName;
-                option.textContent = promptName;
-                promptSelect1.appendChild(option);
-            });
-        }
-        
-        if (model2 && modelsData[model2]) {
-            Object.keys(modelsData[model2]).forEach(promptName => {
-                const option = document.createElement('option');
-                option.value = promptName;
-                option.textContent = promptName;
-                promptSelect2.appendChild(option);
-            });
-        }
+        commonPrompts.forEach(prompt => {
+            const option1 = document.createElement('option');
+            option1.value = prompt;
+            option1.textContent = prompt;
+            prompt1Select.appendChild(option1);
+            
+            const option2 = document.createElement('option');
+            option2.value = prompt;
+            option2.textContent = prompt;
+            prompt2Select.appendChild(option2);
+        });
         
         updateCompareButton();
     }
-
-    // Aktualizacja stanu przycisku porównania
+    
+    // Funkcja do aktualizacji przycisku porównania
     function updateCompareButton() {
         const model1 = document.getElementById('model1').value;
         const model2 = document.getElementById('model2').value;
         const prompt1 = document.getElementById('prompt1').value;
         const prompt2 = document.getElementById('prompt2').value;
+        const compareBtn = document.getElementById('compareBtn');
         
-        document.getElementById('compareBtn').disabled = !(model1 && model2 && prompt1 && prompt2);
+        compareBtn.disabled = !(model1 && model2 && prompt1 && prompt2);
     }
-
-    // Porównanie kodu z dwóch modeli
+    
+    // Funkcja do porównywania kodu
     function compareCode() {
         const model1 = document.getElementById('model1').value;
         const model2 = document.getElementById('model2').value;
@@ -231,69 +286,73 @@
             return;
         }
         
-        const code1 = modelsData[model1][prompt1] || '';
-        const code2 = modelsData[model2][prompt2] || '';
+        const code1 = modelsData[model1][prompt1].extracted_code || '';
+        const code2 = modelsData[model2][prompt2].extracted_code || '';
         
-        // Generowanie diff
-        const diffString = Diff.createTwoFilesPatch(
-            `${model1} - ${prompt1}`,
-            `${model2} - ${prompt2}`,
+        const diffOutput = document.getElementById('diffOutput');
+        diffOutput.innerHTML = '';
+        
+        const diffHeader = document.createElement('div');
+        diffHeader.className = 'diff-header';
+        diffHeader.textContent = `Porównanie: ${model1} vs ${model2} (${prompt1})`;
+        diffOutput.appendChild(diffHeader);
+        
+        const diffContainer = document.createElement('div');
+        diffContainer.id = 'diffContainer';
+        diffOutput.appendChild(diffContainer);
+        
+        const diff = Diff.createTwoFilesPatch(
+            `${model1}.py`,
+            `${model2}.py`,
             code1,
             code2
         );
         
-        // Renderowanie diff
-        const diffOutput = document.getElementById('diffOutput');
-        diffOutput.innerHTML = '';
-        
-        const diff2htmlUi = new Diff2HtmlUI({
-            diff: diffString,
-        });
-        
-        diff2htmlUi.draw('#diffOutput', {
-            inputFormat: 'diff',
-            showFiles: true,
+        const diffHtml = Diff2Html.html(diff, {
+            drawFileList: false,
             matching: 'lines',
             outputFormat: 'side-by-side'
         });
+        
+        diffContainer.innerHTML = diffHtml;
     }
-
-    // Przełączanie zakładek
+    
+    // Funkcja do przełączania zakładek
     function switchTab(tabId) {
-        // Ukryj wszystkie zakładki
-        document.querySelectorAll('.tab-content').forEach(tab => {
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        tabs.forEach(tab => {
             tab.classList.remove('active');
-        });
-        
-        // Usuń aktywną klasę ze wszystkich przycisków zakładek
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        
-        // Aktywuj wybraną zakładkę
-        document.getElementById(tabId).classList.add('active');
-        
-        // Znajdź i aktywuj przycisk zakładki
-        document.querySelectorAll('.tab').forEach(tab => {
             if (tab.textContent.toLowerCase().includes(tabId)) {
                 tab.classList.add('active');
             }
         });
         
-        // Jeśli wybrano zakładkę porównania, załaduj dane
-        if (tabId === 'compare' && !testResults) {
-            loadResults();
-        }
-    }
-
-    // Inicjalizacja po załadowaniu strony
-    document.addEventListener('DOMContentLoaded', function() {
-        // Domyślnie aktywna zakładka ranking
-        switchTab('ranking');
+        tabContents.forEach(content => {
+            content.classList.remove('active');
+        });
         
-        // Załaduj dane
-        loadResults();
-    });
+        document.getElementById(tabId).classList.add('active');
+    }
+    
+    // Inicjalizacja wykresu radarowego
+    function initRadarChart() {
+        // Oblicz dane do wykresu radarowego
+        const { chartLabels, chartData } = calculateRadarChartData(testResults);
+        
+        // Utwórz wykres
+        const radarChart = new AllamaRadarChart(
+            'modelComparisonRadarChart',
+            chartLabels,
+            chartData
+        );
+        
+        radarChart.render();
+    }
+    
+    // Załaduj dane po załadowaniu strony
+    window.addEventListener('DOMContentLoaded', loadResults);
 </script>
 </body>
 </html>
