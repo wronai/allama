@@ -1,5 +1,11 @@
 """Tests for the allama package."""
 import unittest
+import sys
+import os
+
+# Dodaj katalog główny projektu do ścieżki Pythona
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from allama import __version__
 
 class TestAllama(unittest.TestCase):

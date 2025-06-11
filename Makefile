@@ -127,7 +127,9 @@ clean:
 version:
 	@echo "Updating version in pyproject.toml"
 	@current_version=$$(grep -oP 'version = "\K[0-9]+\.[0-9]+\.[0-9]+(?=")' pyproject.toml); \
-	IFS='.' read -r major minor patch <<< "$$current_version"; \
+	major=$$(echo $$current_version | cut -d. -f1); \
+	minor=$$(echo $$current_version | cut -d. -f2); \
+	patch=$$(echo $$current_version | cut -d. -f3); \
 	new_patch=$$((patch + 1)); \
 	new_version="$$major.$$minor.$$new_patch"; \
 	sed -i "s/version = \".*\"/version = \"$$new_version\"/" pyproject.toml; \

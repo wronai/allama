@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ title }}</title>
+<!-- Dodanie bibliotek diff2html -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css">
+<script src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html.min.js"></script>
+<style>
+    body { font-family: Arial, sans-serif; margin: 20px; background-color: {{ colors.light }}; }
+    .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+    h1, h2 { color: {{ colors.dark }}; }
+    .summary { background: #e8f4fd; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    .model-results { margin: 20px 0; border: 1px solid #ddd; border-radius: 5px; }
+    .model-header { background: #f8f9fa; padding: 10px; border-bottom: 1px solid #ddd; }
+    .prompt-result { padding: 15px; border-bottom: 1px solid #eee; }
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 10px 0; }
+    .metric { background: #f8f9fa; padding: 8px; border-radius: 3px; text-align: center; }
+    .code-block { background: #f4f4f4; padding: 10px; border-radius: 3px; font-family: monospace; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+    .success { color: {{ colors.success }}; }
+    .error { color: {{ colors.error }}; }
+    .warning { color: {{ colors.warning }}; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    .score { font-weight: bold; font-size: 1.2em; }
+    .diff-container { margin: 15px 0; }
+    .diff-header { background: #f0f0f0; padding: 8px; border-radius: 3px 3px 0 0; font-weight: bold; }
+    .compare-btn { background: {{ colors.primary }}; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; margin: 5px; }
+    .tab-container { display: flex; margin-bottom: 10px; }
+    .tab { padding: 8px 15px; cursor: pointer; background: #f0f0f0; margin-right: 5px; border-radius: 3px 3px 0 0; }
+    .tab.active { background: {{ colors.primary }}; color: white; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>🧪 {{ title }}</h1>
+    <p><strong>Data generowania:</strong> {{ timestamp }}</p>
+
+    <div class="summary">
+        <h2>📊 Podsumowanie</h2>
+        <div class="metrics">
+            <div class="metric">
+                <strong>Testowane modele:</strong><br>
+                {{ models_count }}
+            </div>
+            <div class="metric">
+                <strong>Liczba testów:</strong><br>
+                {{ tests_count }}
+            </div>
+            <div class="metric">
+                <strong>Testy zakończone sukcesem:</strong><br>
+                {{ successful_tests }} ({{ success_rate }}%)
+            </div>
+            <div class="metric">
+                <strong>Średni czas odpowiedzi:</strong><br>
+                {{ avg_response_time }}s
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-container">
+        <div class="tab active" onclick="switchTab('ranking')">Ranking</div>
+        <div class="tab" onclick="switchTab('details')">Szczegóły</div>
+        <div class="tab" onclick="switchTab('compare')">Porównanie kodu</div>
+    </div>
+
+    <div id="ranking" class="tab-content active">
+        <h2>🏆 Ranking Modeli</h2>
+        {{ ranking_table|safe }}
+    </div>
+
+    <div id="details" class="tab-content">
+        <h2>📋 Szczegółowe Wyniki</h2>
+        {{ model_sections|safe }}
+    </div>
+
+    <div id="compare" class="tab-content">
+        <h2>🔍 Porównanie kodu</h2>
+        <p>Wybierz dwa modele, aby porównać wygenerowany kod:</p>
+        <div>
+            <select id="model1" onchange="updatePromptSelect()"></select>
+            <select id="prompt1" onchange="updateCompareButton()"></select>
+        </div>
+        <div>
+            <select id="model2" onchange="updatePromptSelect()"></select>
+            <select id="prompt2" onchange="updateCompareButton()"></select>
+        </div>
+        <button id="compareBtn" class="compare-btn" onclick="compareCode()">Porównaj kod</button>
+        <div id="diffOutput" class="diff-container"></div>
+    </div>
+</div>
+
+<script>
+    // Dane testowe osadzone bezpośrednio w HTML
+    const testResults = {{ test_results_json|safe }};
+    const modelsData = {};
+    
+    // Funkcja do ładowania danych
+    function loadResults() {
+        try {
+            // Dane są już załadowane z osadzonego JSON
+            
+            // Przygotuj dane modeli
+            const modelSelect1 = document.getElementById('model1');
+            const modelSelect2 = document.getElementById('model2');
+            
+            // Wyczyść listy
+            modelSelect1.innerHTML = '';
+            modelSelect2.innerHTML = '';
+            
+            // Grupuj wyniki według modeli i promptów
+            testResults.results.forEach(result => {
+                const modelName = result.model_name;
+                const promptName = result.prompt_name || 'Prompt ' + Math.random().toString(36).substring(7);
+                
+                if (!modelsData[modelName]) {
+                    modelsData[modelName] = {};
+                    
+                    // Dodaj model do list wyboru
+                    const option1 = document.createElement('option');
+                    option1.value = modelName;
+                    option1.textContent = modelName;
+                    modelSelect1.appendChild(option1);
+                    
+                    const option2 = document.createElement('option');
+                    option2.value = modelName;
+                    option2.textContent = modelName;
+                    modelSelect2.appendChild(option2);
+                }
+                
+                if (result.generated_code) {
+                    modelsData[modelName][promptName] = result.generated_code;
+                }
+            });
+            
+            // Inicjalizuj listy promptów
+            updatePromptSelect();
+        } catch (error) {
+            console.error('Błąd ładowania danych:', error);
+            document.getElementById('diffOutput').innerHTML = '<p class="error">Nie udało się załadować danych. Wystąpił błąd podczas przetwarzania.</p>';
+        }
+    }
+
+    // Aktualizacja list promptów na podstawie wybranych modeli
+    function updatePromptSelect() {
+        const model1 = document.getElementById('model1').value;
+        const model2 = document.getElementById('model2').value;
+        
+        const promptSelect1 = document.getElementById('prompt1');
+        const promptSelect2 = document.getElementById('prompt2');
+        
+        promptSelect1.innerHTML = '';
+        promptSelect2.innerHTML = '';
+        
+        if (model1 && modelsData[model1]) {
+            Object.keys(modelsData[model1]).forEach(promptName => {
+                const option = document.createElement('option');
+                option.value = promptName;
+                option.textContent = promptName;
+                promptSelect1.appendChild(option);
+            });
+        }
+        
+        if (model2 && modelsData[model2]) {
+            Object.keys(modelsData[model2]).forEach(promptName => {
+                const option = document.createElement('option');
+                option.value = promptName;
+                option.textContent = promptName;
+                promptSelect2.appendChild(option);
+            });
+        }
+        
+        updateCompareButton();
+    }
+
+    // Aktualizacja stanu przycisku porównania
+    function updateCompareButton() {
+        const model1 = document.getElementById('model1').value;
+        const model2 = document.getElementById('model2').value;
+        const prompt1 = document.getElementById('prompt1').value;
+        const prompt2 = document.getElementById('prompt2').value;
+        
+        document.getElementById('compareBtn').disabled = !(model1 && model2 && prompt1 && prompt2);
+    }
+
+    // Porównanie kodu z dwóch modeli
+    function compareCode() {
+        const model1 = document.getElementById('model1').value;
+        const model2 = document.getElementById('model2').value;
+        const prompt1 = document.getElementById('prompt1').value;
+        const prompt2 = document.getElementById('prompt2').value;
+        
+        if (!model1 || !model2 || !prompt1 || !prompt2) {
+            return;
+        }
+        
+        const code1 = modelsData[model1][prompt1] || '';
+        const code2 = modelsData[model2][prompt2] || '';
+        
+        // Generowanie diff
+        const diffString = Diff.createTwoFilesPatch(
+            `${model1} - ${prompt1}`,
+            `${model2} - ${prompt2}`,
+            code1,
+            code2
+        );
+        
+        // Renderowanie diff
+        const diffOutput = document.getElementById('diffOutput');
+        diffOutput.innerHTML = '';
+        
+        const diff2htmlUi = new Diff2HtmlUI({
+            diff: diffString,
+        });
+        
+        diff2htmlUi.draw('#diffOutput', {
+            inputFormat: 'diff',
+            showFiles: true,
+            matching: 'lines',
+            outputFormat: 'side-by-side'
+        });
+    }
+
+    // Przełączanie zakładek
+    function switchTab(tabId) {
+        // Ukryj wszystkie zakładki
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Usuń aktywną klasę ze wszystkich przycisków zakładek
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Aktywuj wybraną zakładkę
+        document.getElementById(tabId).classList.add('active');
+        
+        // Znajdź i aktywuj przycisk zakładki
+        document.querySelectorAll('.tab').forEach(tab => {
+            if (tab.textContent.toLowerCase().includes(tabId)) {
+                tab.classList.add('active');
+            }
+        });
+        
+        // Jeśli wybrano zakładkę porównania, załaduj dane
+        if (tabId === 'compare' && !testResults) {
+            loadResults();
+        }
+    }
+
+    // Inicjalizacja po załadowaniu strony
+    document.addEventListener('DOMContentLoaded', function() {
+        // Domyślnie aktywna zakładka ranking
+        switchTab('ranking');
+        
+        // Załaduj dane
+        loadResults();
+    });
+</script>
+</body>
+</html>
