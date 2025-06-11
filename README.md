@@ -15,9 +15,13 @@ A comprehensive testing and benchmarking suite for Large Language Models (LLMs) 
 - **Multiple API Support** - Ollama, local servers, cloud services
 - **Model Ranking** based on performance and quality metrics
 - **Zero Configuration** - automatically generates default config files when needed
+- **Benchmark Publishing** - share your results with the community via the Allama server
+- **Local Results Storage** - automatically saves results in timestamped folders
+- **Prompt Analysis** - detailed information about prompts used in benchmarks
+- **Radar Charts** - visual comparison of model performance across multiple metrics
 
 ## Quick Start
-
+![img.png](img.png)
 ### 1. Installation
 
 #### Using Poetry (recommended)
@@ -161,8 +165,41 @@ The publishing system includes:
 - **Request throttling**: Minimum 1 second between requests
 - **Automatic organization**: Results are stored in timestamped directories
 - **Web interface**: Browse and compare published benchmarks
+- **Responsive design**: Optimized for both desktop and mobile devices
+- **Radar charts**: Visual comparison of model performance across multiple metrics
+- **Badge-style metrics**: Quick overview of key benchmark statistics
 
 After publishing, you'll receive a URL where you can view your results online.
+
+### Local Results Storage
+
+All benchmark results are automatically saved locally in a timestamped folder structure:
+```
+data/
+└── test_YYYYMMDD_HHMMSS/
+    ├── allama.json       # Complete benchmark results
+    ├── allama.html       # HTML report
+    └── prompts.json      # Detailed prompt information
+```
+
+This allows you to:
+- Keep a history of all benchmark runs
+- Compare results over time
+- Share specific benchmark results with others
+
+### Benchmark Visualization
+
+The benchmark server provides several visualization features:
+- **Responsive 3-column layout**: Displays benchmarks in an easy-to-scan grid (collapses to single column on mobile)
+- **Radar charts**: Each benchmark includes a radar chart showing model performance across 6 key metrics:
+  - Success rate
+  - Response speed
+  - Syntax correctness
+  - Execution success
+  - Keywords presence
+  - Code quality
+- **Badge-style metrics**: Key statistics displayed as GitHub-style badges for quick reference
+- **Model comparison**: Easy visual comparison of multiple models within each benchmark
 
 ## Usage
 
