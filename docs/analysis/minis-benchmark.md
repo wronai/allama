@@ -151,3 +151,13 @@ Regression coverage also checks reference implementations for every task,
 resume compatibility, transport retries, infrastructure classification, early
 process exit, timeout, no-network execution and HTML escaping. Mobile inspection
 found an overflowing SHA256 string; wrapping was corrected.
+
+### Installed profile differences
+
+Common generation settings are context, token limit, temperature and seed. Other
+model defaults remain in effect and are recorded in `models[].parameters`.
+In particular, Qwen 9B advertises presence_penalty=1.5; Qwen 27B has
+presence_penalty=0 and embedded MTP (`draft_num_predict=4`, confirmed in server
+logs). Gemma has a separate draft model with three draft tokens. GPT-OSS and
+Devstral do not declare a draft. This measures the installed profiles; the
+per-model decoder settings are part of the configuration being compared.

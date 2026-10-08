@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import random
+import re
 import statistics
 import subprocess
 import time
@@ -32,6 +33,14 @@ def thinking_mode(show):
     if 'low' in values:
         return 'low'
     return None
+
+
+def speculative_configured(show):
+    """Report configured MTP, including an embedded draft without DRAFT line."""
+    count = re.search(r'^draft_num_predict\s+(\d+)\s*$', show.get('parameters', ''), re.MULTILINE)
+    if count:
+        return int(count.group(1)) > 0
+    return any(line.startswith('DRAFT ') for line in show.get('modelfile', '').splitlines())
 
 
 def payload(model, prompt, think, context=8192, limit=1024, seed=42):
@@ -154,6 +163,11 @@ def save_report(report, directory):
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     report['summary'] = summarize(report['results'], report['models'])
+    expected = len(report['tasks']) * report['settings']['repeats']
+    perfect = [s for s in report['summary'] if expected and s['passed'] == expected
+               and s['attempts'] == expected and s['wall_s'] is not None]
+    report['fastest_complete'] = (min(perfect, key=lambda s: s['wall_s'])
+                                  if perfect and report['status'] == 'complete' else None)
     report['updated_at'] = datetime.now(timezone.utc).isoformat()
     target = directory / 'results.json'
     temporary = directory / 'results.json.tmp'
@@ -286,7 +300,7 @@ def main(argv=None):
             think = thinking_mode(show)
             meta = {'digest': tags[model]['digest'], 'details': show['details'], 'think': think,
                     'parameters': show.get('parameters'),
-                    'speculative_decoding': any(line.startswith('DRAFT ') for line in show.get('modelfile', '').splitlines()),
+                    'speculative_decoding': speculative_configured(show),
                     'thinking_metadata': show.get('thinking'), 'capabilities': show.get('capabilities')}
             if model in report['models']:
                 meta['previous_loads'] = [report['models'][model]]

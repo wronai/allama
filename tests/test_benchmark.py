@@ -167,3 +167,14 @@ def test_resume_archives_interference_without_hiding_quality_failures():
     result = resume_report(saved, expected, {'m':{'digest':'d'}})
     assert result['results'] == []
     assert result['superseded_interference_attempts'][0]['passed'] is True
+
+
+@pytest.mark.parametrize('parameters,modelfile,expected', [
+    ('draft_num_predict 4','FROM model',True),
+    ('draft_num_predict 0','DRAFT model',False),
+    ('','DRAFT model',True),
+    ('temperature 1','FROM model',False),
+])
+def test_embedded_and_external_speculative_configuration(parameters, modelfile, expected):
+    from allama.benchmark import speculative_configured
+    assert speculative_configured({'parameters':parameters,'modelfile':modelfile}) is expected
