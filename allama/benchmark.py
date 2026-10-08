@@ -6,6 +6,7 @@ Generated code is executed only in a resource-limited, networkless container.
 import argparse
 import hashlib
 import json
+import os
 import random
 import statistics
 import subprocess
@@ -78,6 +79,7 @@ def generate(session, url, data, timeout=240):
             result['error'] = 'Stream ended without done=true'
     except (requests.RequestException, ValueError, RuntimeError, TimeoutError) as exc:
         result['error'] = str(exc)
+        result['transport_error'] = isinstance(exc, (requests.ConnectionError, requests.Timeout))
     result['wall_s'] = time.perf_counter() - start
     result['truncated'] = result.get('done_reason') == 'length'
     result['valid_answer'] = (result['completed'] and not result['error'] and
@@ -141,6 +143,8 @@ def summarize(rows, metadata):
                         'tokens_per_second': median('tokens_per_second'),
                         'vram_gib': memory.get('size_vram', 0) / 1024**3,
                         'size_gib': memory.get('size', 0) / 1024**3,
+                        'memory_warning': meta.get('memory_warning'),
+                        'speculative_decoding': meta.get('speculative_decoding', False),
                         'think': meta.get('think'),
                         'quantization': meta.get('details', {}).get('quantization_level', '?')})
     return summary
@@ -174,8 +178,40 @@ def reevaluate(directory):
             row['evaluation'] = check
             row['passed'] = check['passed']
     report['reevaluated_at'] = datetime.now(timezone.utc).isoformat()
+    report['evaluation_runtime'] = os.environ.get('DOCKER_HOST', 'local Docker')
     save_report(report, directory)
     return report
+
+
+def resume_report(saved, expected, tags):
+    """Keep completed attempts and audit retryable connection failures."""
+    for key in ('settings', 'tasks_sha256', 'planned'):
+        if saved[key] != expected[key]:
+            raise ValueError('Resume configuration changed: ' + key)
+    if saved.get('planned_models', expected['planned_models']) != expected['planned_models']:
+        raise ValueError('Resume model list changed')
+    if saved.get('ollama_version') != expected.get('ollama_version'):
+        raise ValueError('Resume Ollama version changed')
+    for model, meta in saved['models'].items():
+        if model not in expected['planned_models'] or model not in tags or meta['digest'] != tags[model]['digest']:
+            raise ValueError('Resume model digest changed: ' + model)
+    keys = [(r['model'], r['task'], r['repeat']) for r in saved['results']]
+    if len(keys) != len(set(keys)):
+        raise ValueError('Duplicate trial identities in saved results')
+    keep = []
+    for row in saved['results']:
+        if row.get('isolation_ok') is False:
+            saved.setdefault('superseded_interference_attempts', []).append(row)
+        elif row.get('transport_error') or 'NameResolutionError' in (row.get('error') or ''):
+            saved.setdefault('superseded_transport_attempts', []).append(row)
+        else:
+            keep.append(row)
+    saved['results'] = keep
+    saved.setdefault('resumes', []).append({'at': datetime.now(timezone.utc).isoformat(),
+                                           'previous_url': saved['url'], 'url': expected['url'],
+                                           'previous_error': saved.pop('error', None)})
+    saved.update(status='running', url=expected['url'], planned_models=expected['planned_models'])
+    return saved
 
 
 def main(argv=None):
@@ -183,6 +219,7 @@ def main(argv=None):
     parser.add_argument('--url', default='http://localhost:11434')
     parser.add_argument('--models', nargs='+')
     parser.add_argument('--reevaluate', type=Path, help='Recheck saved answers in a finished report directory')
+    parser.add_argument('--resume', action='store_true', help='Resume matching saved results; audit/retry connection errors')
     parser.add_argument('--tasks', type=Path, default=Path(__file__).with_name('benchmark_tasks.json'))
     parser.add_argument('--repeats', type=int, default=2)
     parser.add_argument('--context', type=int, default=8192)
@@ -196,9 +233,11 @@ def main(argv=None):
         return
     if not args.models:
         parser.error('--models is required for inference')
+    if len(args.models) != len(set(args.models)):
+        parser.error('--models must not contain duplicates')
     if args.repeats < 1 or args.context < 128 or args.limit < 1:
         parser.error('repeats and limit must be positive; context >=128')
-    if (args.output / 'results.json').exists():
+    if (args.output / 'results.json').exists() and not args.resume:
         parser.error('Output already contains results.json; use a new directory to preserve evidence')
     tasks = json.loads(args.tasks.read_text())
     if not tasks or len({t['id'] for t in tasks}) != len(tasks):
@@ -222,12 +261,22 @@ def main(argv=None):
               'started_at': datetime.now(timezone.utc).isoformat(), 'host': args.host_label,
               'ollama_version': get('/api/version'), 'url': url, 'models': {}, 'results': [],
               'planned': len(args.models) * len(tasks) * args.repeats,
+              'planned_models': args.models,
               'settings': {'context': args.context, 'limit': args.limit, 'temperature': 0,
                            'repeats': args.repeats, 'seed': 42, 'image': IMAGE, 'system': SYSTEM},
               'tasks_sha256': hashlib.sha256(args.tasks.read_bytes()).hexdigest(), 'tasks': tasks}
+    if args.resume:
+        saved = json.loads((args.output / 'results.json').read_text())
+        if saved['status'] == 'running':
+            raise ValueError('Refusing to resume a report still marked running')
+        report = resume_report(saved, report, tags)
+    completed = {(r['model'], r['task'], r['repeat']) for r in report['results']}
     save_report(report, args.output)
     try:
         for model in args.models:
+            if all((model, task['id'], repeat + 1) in completed
+                   for task in tasks for repeat in range(args.repeats)):
+                continue
             resident = get('/api/ps')['models']
             if resident and not args.unload_existing:
                 raise RuntimeError('Resident models found; use --unload-existing for isolated measurements')
@@ -236,7 +285,11 @@ def main(argv=None):
             show = post('/api/show', {'model': model})
             think = thinking_mode(show)
             meta = {'digest': tags[model]['digest'], 'details': show['details'], 'think': think,
+                    'parameters': show.get('parameters'),
+                    'speculative_decoding': any(line.startswith('DRAFT ') for line in show.get('modelfile', '').splitlines()),
                     'thinking_metadata': show.get('thinking'), 'capabilities': show.get('capabilities')}
+            if model in report['models']:
+                meta['previous_loads'] = [report['models'][model]]
             report['models'][model] = meta
             print(f'Loading {model}, think={think!r}', flush=True)
             warm = generate(session, url, payload(model, 'Odpowiedz: OK', think, args.context, 32))
@@ -247,12 +300,23 @@ def main(argv=None):
             if len(loaded) != 1 or loaded[0]['name'] != model:
                 raise RuntimeError('Model isolation failed: ' + str([m['name'] for m in loaded]))
             meta['loaded'] = loaded[0]
+            if meta['speculative_decoding'] and loaded[0].get('size', 0) < tags[model]['size'] / 2:
+                meta['memory_warning'] = 'Ollama reports less than half the model file size with a draft model active; verify server buffer logs before comparing memory.'
             for repeat in range(args.repeats):
                 ordered = list(tasks)
                 random.Random(42 + repeat).shuffle(ordered)
                 for task in ordered:
+                    if (model, task['id'], repeat + 1) in completed:
+                        continue
+                    before = get('/api/ps')['models']
+                    if [m['name'] for m in before] != [model]:
+                        raise RuntimeError('Other resident models detected before trial; wait for an idle server and resume')
                     data = payload(model, task['prompt'], think, args.context, args.limit)
                     row = generate(session, url, data)
+                    after = get('/api/ps')['models']
+                    row['resident_before'] = [m['name'] for m in before]
+                    row['resident_after'] = [m['name'] for m in after]
+                    row['isolation_ok'] = row['resident_after'] == [model]
                     row.update(model=model, task=task['id'], repeat=repeat + 1, request=data)
                     code = CodeEvaluator().extract_python_code(row['content'])
                     check = functional_check(code, task['tests']) if row['valid_answer'] else {'passed': False, 'output': 'Incomplete or empty answer'}
@@ -261,6 +325,10 @@ def main(argv=None):
                     save_report(report, args.output)
                     print(f"{len(report['results'])}/{report['planned']} {model} {task['id']} "
                           f"pass={row['passed']} time={row['wall_s']:.2f}s rate={row['tokens_per_second']}", flush=True)
+                    if row.get('transport_error'):
+                        raise RuntimeError('Connection failed; results saved. Restore endpoint and use --resume.')
+                    if not row['isolation_ok']:
+                        raise RuntimeError('Other models loaded during trial; attempt retained for audit. Wait and resume.')
             post('/api/generate', {'model': model, 'keep_alive': 0})
         report['status'] = 'complete'
     except BaseException as exc:

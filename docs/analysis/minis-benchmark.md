@@ -105,3 +105,49 @@ Protected code publication is pending: the deployed Validator registry has no
 `wronai/allama` repository or OneDev profile. Its adoption requires the independent
 controller. The checkpoint/outbox records this exact next action; no approval
 checks were bypassed. Local report hosting is independent of code publication.
+
+### Recovery and memory reporting
+
+A transient DNS failure on the client interrupted the first run after 36 recorded
+attempts, including 11 connection failures for Gemma. Completed responses were
+retained. `--resume` checks task hashes, generation settings, model digests and
+Ollama version; it archives connection failures before retrying them. Wrong model
+answers are retained. No failed inference response is silently replaced with a
+better sample. The endpoint was pinned to the SSH-confirmed LAN address
+`192.168.188.170`; the report URL remains `http://minis:3001/`.
+
+The evaluator was moved to the same pinned Docker image on minis via
+`DOCKER_HOST=ssh://tom@192.168.188.170`, avoiding client Docker contention.
+This changes evaluation location, not inference settings or saved response times.
+
+Gemma's existing installation enables MTP speculative decoding with a draft
+model (`draft_num_predict=3`). Ollama `/api/ps` reports 1.243 GiB, inconsistent with
+server logs: the main model alone has 7024.34 MiB of GPU weights and the draft has
+428.53 MiB. The sum is 7.278 GiB **for weights alone**, excluding KV, compute and
+other buffers. This API memory value must not be used as actual footprint. The
+report marks it unreliable and retains raw evidence. The installed Ollama source
+was not present in the inspected wrapper repository; no runtime binary was patched.
+
+To resume a matching interrupted run:
+
+```bash
+DOCKER_HOST=ssh://tom@192.168.188.170 .venv/bin/allama benchmark \
+  --url http://192.168.188.170:11434 \
+  --models gpt-oss:20b qwen3.5:9b gemma4:12b qwen3.8:27b devstral-small-2:24b \
+  --repeats 2 --context 8192 --limit 1024 --unload-existing \
+  --output benchmark-results --resume
+```
+
+### Concurrent inference
+
+OpenWebUI submitted GPT-OSS and Gemma requests while the Qwen 27B group was running.
+Four Qwen attempts were conservatively excluded from the performance comparison
+and retained in `superseded_interference_attempts`. The user confirmed a quiet
+window. That group was restarted; the runner now checks `/api/ps` before and after
+every trial and stops on other resident models. Boundary checks cannot detect a
+second request to the same model, so a quiet server remains necessary.
+
+Regression coverage also checks reference implementations for every task,
+resume compatibility, transport retries, infrastructure classification, early
+process exit, timeout, no-network execution and HTML escaping. Mobile inspection
+found an overflowing SHA256 string; wrapping was corrected.

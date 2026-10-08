@@ -126,3 +126,44 @@ def test_reevaluate_rejects_running_report(tmp_path):
     (tmp_path/'results.json').write_text(json.dumps({'status':'running'}))
     with pytest.raises(ValueError, match='running'):
         reevaluate(tmp_path)
+
+
+def test_resume_preserves_answers_and_audits_transport_failures():
+    from allama.benchmark import resume_report
+    saved = {'settings':{},'tasks_sha256':'hash','planned':2,'url':'http://old',
+             'models':{'m':{'digest':'abc'}}, 'results':[
+                 {'model':'m','task':'a','repeat':1,'passed':False},
+                 {'model':'m','task':'b','repeat':1,'error':'NameResolutionError'}]}
+    expected = {'settings':{},'tasks_sha256':'hash','planned':2,
+                'planned_models':['m'], 'url':'http://new'}
+    result = resume_report(saved, expected, {'m':{'digest':'abc'}})
+    assert len(result['results']) == 1 and not result['results'][0]['passed']
+    assert len(result['superseded_transport_attempts']) == 1
+    assert result['status'] == 'running' and result['url'] == 'http://new'
+
+
+@pytest.mark.parametrize('change', ['settings','tasks_sha256','planned','digest'])
+def test_resume_rejects_incomparable_run(change):
+    from allama.benchmark import resume_report
+    saved = {'settings':{},'tasks_sha256':'hash','planned':2,'url':'http://old',
+             'models':{'m':{'digest':'abc'}}, 'results':[]}
+    expected = {'settings':{},'tasks_sha256':'hash','planned':2,
+                'planned_models':['m'], 'url':'http://new'}
+    tags = {'m':{'digest':'abc'}}
+    if change == 'digest':
+        tags['m']['digest'] = 'different'
+    else:
+        expected[change] = 'different'
+    with pytest.raises(ValueError, match='changed'):
+        resume_report(saved, expected, tags)
+
+
+def test_resume_archives_interference_without_hiding_quality_failures():
+    from allama.benchmark import resume_report
+    saved = {'settings':{}, 'tasks_sha256':'h','planned':1,'url':'old',
+             'models':{'m':{'digest':'d'}},'results':[
+                 {'model':'m','task':'a','repeat':1,'isolation_ok':False,'passed':True}]}
+    expected = {'settings':{},'tasks_sha256':'h','planned':1,'url':'new','planned_models':['m']}
+    result = resume_report(saved, expected, {'m':{'digest':'d'}})
+    assert result['results'] == []
+    assert result['superseded_interference_attempts'][0]['passed'] is True
