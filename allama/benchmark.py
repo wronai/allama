@@ -85,14 +85,20 @@ def generate(session, url, data, timeout=240):
     return result
 
 
-def functional_check(code, tests, image=IMAGE, timeout=12):
+def functional_check(code, tests, image=IMAGE, timeout=60, execution_timeout=10):
     """Completion marker prevents sys.exit(0) from being mistaken for passing."""
     if not code.strip() or not CodeEvaluator().check_syntax(code):
-        return {'passed': False, 'output': 'Empty response or invalid Python syntax'}
+        return {'passed': False, 'status': 'failed', 'output': 'Empty response or invalid Python syntax'}
     marker = 'ALLAMA_PASS_' + uuid.uuid4().hex
+    ready = 'ALLAMA_READY_' + uuid.uuid4().hex
     name = 'allama-eval-' + uuid.uuid4().hex
-    script = ('scope = {}\nexec(' + repr(code) + ', scope)\nexec(' + repr(tests) +
-              ', scope)\nprint(' + repr(marker) + ')\n')
+    script = ('import signal, linecache\nsignal.alarm(' + repr(execution_timeout) + ')\n'
+              'print(' + repr(ready) + ', flush=True)\nscope = {}\n'
+              'exec(compile(' + repr(code) + ", 'candidate.py', 'exec'), scope)\n"
+              "linecache.cache['checks.py'] = (" + repr(len(tests)) + ', None, ' +
+              repr(tests.splitlines(keepends=True)) + ", 'checks.py')\n"
+              'exec(compile(' + repr(tests) + ", 'checks.py', 'exec'), scope)\n"
+              'print(' + repr(marker) + ', flush=True)\n')
     command = ['docker', 'run', '--rm', '--name', name, '--network=none', '--read-only',
                '--cap-drop=ALL', '--security-opt=no-new-privileges', '--pids-limit=32',
                '--memory=128m', '--memory-swap=128m', '--cpus=1', '--user=65534:65534',
@@ -100,9 +106,18 @@ def functional_check(code, tests, image=IMAGE, timeout=12):
     try:
         proc = subprocess.run(command, input=script, text=True, capture_output=True, timeout=timeout)
         passed = proc.returncode == 0 and marker in proc.stdout.splitlines()
-        return {'passed': passed, 'output': (proc.stdout.replace(marker, '') + proc.stderr)[-4000:]}
-    except subprocess.TimeoutExpired:
-        return {'passed': False, 'output': 'Functional evaluation timeout'}
+        started = ready in proc.stdout.splitlines()
+        output = (proc.stdout.replace(marker, '').replace(ready, '') + proc.stderr).strip()
+        if not passed and not output:
+            output = f'Code exited with status {proc.returncode} without completing assertions'
+        return {'passed': passed, 'status': 'passed' if passed else 'failed' if started else 'infra_error',
+                'output': output[-4000:]}
+    except subprocess.TimeoutExpired as exc:
+        output = exc.stdout or b''
+        if isinstance(output, bytes):
+            output = output.decode(errors='replace')
+        return {'passed': False, 'status': 'failed' if ready in output else 'infra_error',
+                'output': 'Evaluation timeout after code started' if ready in output else 'Container startup timeout'}
     finally:
         subprocess.run(['docker', 'rm', '-f', name], capture_output=True, timeout=10)
 
@@ -115,9 +130,12 @@ def summarize(rows, metadata):
             values = [r[key] for r in items if r.get(key) is not None and r.get('valid_answer')]
             return statistics.median(values) if values else None
         memory = meta.get('loaded', {})
+        infra_errors = sum(r.get('evaluation', {}).get('status') == 'infra_error' for r in items)
         summary.append({'model': model, 'attempts': len(items),
+                        'evaluated': len(items) - infra_errors,
                         'passed': sum(r['passed'] for r in items),
                         'errors': sum(bool(r.get('error')) for r in items),
+                        'infra_errors': infra_errors,
                         'truncated': sum(r.get('truncated', False) for r in items),
                         'wall_s': median('wall_s'), 'first_answer_s': median('first_answer_s'),
                         'tokens_per_second': median('tokens_per_second'),
@@ -140,10 +158,31 @@ def save_report(report, directory):
     ReportGenerator({}).generate_benchmark_report(report, directory / 'index.html')
 
 
+def reevaluate(directory):
+    """Recheck saved answers without new inference; retain original evidence."""
+    directory = Path(directory)
+    report = json.loads((directory / 'results.json').read_text())
+    if report['status'] == 'running':
+        raise ValueError('Cannot reevaluate a running benchmark')
+    tasks = {t['id']: t for t in report['tasks']}
+    for row in report['results']:
+        row.setdefault('original_evaluation', row['evaluation'])
+        if row['valid_answer']:
+            check = functional_check(row['code'], tasks[row['task']]['tests'])
+            if check['status'] == 'infra_error':
+                check = functional_check(row['code'], tasks[row['task']]['tests'])
+            row['evaluation'] = check
+            row['passed'] = check['passed']
+    report['reevaluated_at'] = datetime.now(timezone.utc).isoformat()
+    save_report(report, directory)
+    return report
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--url', default='http://localhost:11434')
-    parser.add_argument('--models', nargs='+', required=True)
+    parser.add_argument('--models', nargs='+')
+    parser.add_argument('--reevaluate', type=Path, help='Recheck saved answers in a finished report directory')
     parser.add_argument('--tasks', type=Path, default=Path(__file__).with_name('benchmark_tasks.json'))
     parser.add_argument('--repeats', type=int, default=2)
     parser.add_argument('--context', type=int, default=8192)
@@ -152,6 +191,11 @@ def main(argv=None):
     parser.add_argument('--host-label', default='Ollama host')
     parser.add_argument('--unload-existing', action='store_true', help='Unload resident models before each model group')
     args = parser.parse_args(argv)
+    if args.reevaluate:
+        reevaluate(args.reevaluate)
+        return
+    if not args.models:
+        parser.error('--models is required for inference')
     if args.repeats < 1 or args.context < 128 or args.limit < 1:
         parser.error('repeats and limit must be positive; context >=128')
     if (args.output / 'results.json').exists():

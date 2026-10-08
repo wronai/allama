@@ -92,7 +92,8 @@ def test_html_escapes_generated_content(tmp_path):
 @pytest.mark.parametrize('code,passed', [('def add(a,b): return a+b',True),
     ('def add(a,b): return a-b',False), ('raise SystemExit(0)',False), ('invalid python !!!',False)])
 def test_container_evaluates_behavior(code, passed):
-    assert functional_check(code,'assert add(2,3) == 5')['passed'] is passed
+    result = functional_check(code,'assert add(2,3) == 5')
+    assert result['passed'] is passed, result
 
 
 def test_container_has_no_network():
@@ -103,3 +104,25 @@ def test_container_has_no_network():
 def test_timeout_kills_container():
     r = functional_check('while True: pass', '', timeout=1)
     assert not r['passed'] and 'timeout' in r['output']
+
+
+def test_infrastructure_errors_not_scored_as_wrong_code():
+    rows = [{'model':'m','passed':False,'valid_answer':True,'wall_s':2,
+             'evaluation':{'status':'infra_error'}}]
+    result = summarize(rows, {'m':{}})[0]
+    assert result['attempts'] == 1 and result['evaluated'] == 0
+    assert result['infra_errors'] == 1
+
+
+def test_container_launch_failure_is_infrastructure_error():
+    process = Mock(returncode=125, stdout='', stderr='daemon unavailable')
+    with patch('allama.benchmark.subprocess.run', return_value=process):
+        result = functional_check('x=1', 'assert x==1')
+    assert result['status'] == 'infra_error'
+
+
+def test_reevaluate_rejects_running_report(tmp_path):
+    from allama.benchmark import reevaluate
+    (tmp_path/'results.json').write_text(json.dumps({'status':'running'}))
+    with pytest.raises(ValueError, match='running'):
+        reevaluate(tmp_path)

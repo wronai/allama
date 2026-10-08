@@ -39,6 +39,9 @@ The original CSV CLI remains available; its thinking forwarding was corrected.
 - Generated code runs in a pinned Python 3.12 Docker image without network,
   writable host mounts, root privileges or Linux capabilities; memory/CPU/process
   and wall-time limits apply. Completion marker rejects early `SystemExit(0)`.
+- Container startup has a separate 60-second host deadline; code has a 10-second
+  in-container alarm. Runtime startup failures are marked `infra_error`, excluded
+  from the quality denominator and displayed as unscored.
 - Every attempt saves JSON atomically and regenerates an escaped, offline HTML
   report. Existing result directories cannot be overwritten accidentally.
 
@@ -76,8 +79,29 @@ total RAM. The reported GPU allocation can be compared with a 16 GiB budget.
 ## Evidence and delivery
 
 Runtime evidence: `/home/tom/.local/state/minis-allama-20261008/`.
-Browser report: `http://minis:3001/` (minis user unit `allama-benchmark-report`).
+Browser report: `http://minis:3001/` (minis user unit `allama-report`).
 Final result summary and verification are added after the run completes.
 
 API definitions: [Ollama chat](https://docs.ollama.com/api/chat),
 [thinking controls](https://docs.ollama.com/capabilities/thinking).
+
+
+### Evaluator correction during the run
+
+The extended regression run exposed a container-startup timeout on the busy
+client host (load 25.5 with 16 logical CPUs). The original 12-second deadline
+included Docker startup. Hostguard and fixos diagnostics were saved; no unrelated
+processes were terminated. The evaluator now separates a 60-second launch deadline
+from a 10-second code execution alarm, records infrastructure errors separately,
+and includes failing assertion source in tracebacks. All saved answers will be
+reevaluated with this corrected evaluator, preserving `original_evaluation`.
+Inference timings are not changed by reevaluation.
+
+```bash
+.venv/bin/allama benchmark --reevaluate benchmark-results
+```
+
+Protected code publication is pending: the deployed Validator registry has no
+`wronai/allama` repository or OneDev profile. Its adoption requires the independent
+controller. The checkpoint/outbox records this exact next action; no approval
+checks were bypassed. Local report hosting is independent of code publication.
