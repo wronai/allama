@@ -374,3 +374,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 <div align="center">
   Made with ❤️ by the Allama team
 </div>
+## Native Ollama functional benchmark
+
+Use `allama benchmark --url http://minis:11434 --models gpt-oss:20b --unload-existing`
+for repeated functional code tests and streamed timing metrics. This profile
+requires Docker for isolated evaluation and produces `benchmark-results/index.html`
+plus complete JSON evidence. [Methodology, setup and minis results](docs/analysis/minis-benchmark.md).

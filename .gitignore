@@ -1,4 +1,6 @@
 allama.html
+/.worktrees/
+/benchmark-results/
 allama.json
 models2.csv
 .idea

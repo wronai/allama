@@ -10,6 +10,10 @@ def main():
     """
     Główna funkcja uruchamiająca benchmark Allama
     """
+    if len(sys.argv) > 1 and sys.argv[1] == 'benchmark':
+        from allama.benchmark import main as run_profile
+        return run_profile(sys.argv[2:])
+
     # Ustaw zmienną środowiskową, aby poinformować moduł o automatycznym uruchomieniu
     os.environ['ALLAMA_AUTO_RUN'] = '1'
 
