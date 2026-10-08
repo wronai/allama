@@ -1,0 +1,11 @@
+{
+  "python": "3.12.13 (main, Jun 23 2026, 15:18:55) [Clang 22.1.3 ]",
+  "packages": {
+    "allama": "0.1.18",
+    "requests": "2.34.2",
+    "jinja2": "3.1.6",
+    "pytest": "8.4.2",
+    "pandas": "2.3.3",
+    "pyyaml": "6.0.3"
+  }
+}

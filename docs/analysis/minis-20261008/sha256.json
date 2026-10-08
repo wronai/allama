@@ -1,0 +1,13 @@
+{
+  "baseline.json": "154abbc5d15c5a94da42367cf39841cdd127715be14d818a1b1626b3010ed4e6",
+  "browser-verification.json": "00cc4ac6c4defcd64b33f2283e7cd3a7c61ae73184d5362d25e99bcd20e75bc4",
+  "driver-memory.json": "03a69dbd71c799a1fae1c8462ce822a962c8af5d988940a7365ab5084ff35f6d",
+  "environment.json": "5243f753b413aa4bfec5ad38950fedabb778dd3bd4ca978112f3c544e037fab8",
+  "gemma-memory-evidence.txt": "c3898b298e482faeeb36c5c5162c55c9acb865ab67b4d359442681106d9a0ebc",
+  "hardware.txt": "ddc5cf1bec00183fed24d1582927bc04e997829fcf14e89f5ab9bd43c6a2e4c3",
+  "index.html": "4f389ae52ce763a033c6fd5e3374fdf23dd52294be6d657804a091e92b550aa4",
+  "memory-probe.py": "16298e51bb31374971baf67e760388908464ff56111b43e58badd823c5a80a47",
+  "report-final.png": "e483ee30ad4d643a7df9675bb37c6395171a9de36c4d71c383d0ad57f93ad043",
+  "results.json": "35252c143426d09c66c42cef9ac50b7553f3648c567d92fadbbbcc7a25e6e767",
+  "tests.txt": "1fefe8d109b7a1c850d03c48926f7874ed3554c51480cb0f53c65ca64db8d9e0"
+}
