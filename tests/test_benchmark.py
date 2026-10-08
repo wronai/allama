@@ -178,3 +178,16 @@ def test_resume_archives_interference_without_hiding_quality_failures():
 def test_embedded_and_external_speculative_configuration(parameters, modelfile, expected):
     from allama.benchmark import speculative_configured
     assert speculative_configured({'parameters':parameters,'modelfile':modelfile}) is expected
+
+
+def test_connection_failure_is_retryable():
+    import requests
+    session = Mock()
+    session.post.side_effect = requests.ConnectionError('DNS failed')
+    row = generate(session,'http://server',{})
+    assert row['transport_error'] and not row['completed'] and not row['valid_answer']
+
+
+def test_container_failure_includes_assertion_source():
+    result = functional_check('def f(): return 0','assert f() == 42')
+    assert not result['passed'] and 'assert f() == 42' in result['output']

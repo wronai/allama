@@ -37,7 +37,7 @@ def thinking_mode(show):
 
 def speculative_configured(show):
     """Report configured MTP, including an embedded draft without DRAFT line."""
-    count = re.search(r'^draft_num_predict\s+(\d+)\s*$', show.get('parameters', ''), re.MULTILINE)
+    count = re.search(r'^draft_num_predict\s+(\d+)\s*$', show.get('parameters') or '', re.MULTILINE)
     if count:
         return int(count.group(1)) > 0
     return any(line.startswith('DRAFT ') for line in show.get('modelfile', '').splitlines())
@@ -103,12 +103,15 @@ def functional_check(code, tests, image=IMAGE, timeout=60, execution_timeout=10)
     marker = 'ALLAMA_PASS_' + uuid.uuid4().hex
     ready = 'ALLAMA_READY_' + uuid.uuid4().hex
     name = 'allama-eval-' + uuid.uuid4().hex
-    script = ('import signal, linecache\nsignal.alarm(' + repr(execution_timeout) + ')\n'
+    script = ('import signal, linecache, traceback\nsignal.alarm(' + repr(execution_timeout) + ')\n'
               'print(' + repr(ready) + ', flush=True)\nscope = {}\n'
-              'exec(compile(' + repr(code) + ", 'candidate.py', 'exec'), scope)\n"
+              "linecache.cache['candidate.py'] = (" + repr(len(code)) + ', None, ' +
+              repr(code.splitlines(keepends=True)) + ", 'candidate.py')\n"
               "linecache.cache['checks.py'] = (" + repr(len(tests)) + ', None, ' +
               repr(tests.splitlines(keepends=True)) + ", 'checks.py')\n"
-              'exec(compile(' + repr(tests) + ", 'checks.py', 'exec'), scope)\n"
+              'try:\n    exec(compile(' + repr(code) + ", 'candidate.py', 'exec'), scope)\n"
+              '    exec(compile(' + repr(tests) + ", 'checks.py', 'exec'), scope)\n"
+              'except BaseException:\n    traceback.print_exc()\n    raise SystemExit(1)\n'
               'print(' + repr(marker) + ', flush=True)\n')
     command = ['docker', 'run', '--rm', '--name', name, '--network=none', '--read-only',
                '--cap-drop=ALL', '--security-opt=no-new-privileges', '--pids-limit=32',
@@ -153,6 +156,7 @@ def summarize(rows, metadata):
                         'vram_gib': memory.get('size_vram', 0) / 1024**3,
                         'size_gib': memory.get('size', 0) / 1024**3,
                         'memory_warning': meta.get('memory_warning'),
+                        'driver_memory_gib': meta.get('driver_memory', {}).get('delta_gib'),
                         'speculative_decoding': meta.get('speculative_decoding', False),
                         'think': meta.get('think'),
                         'quantization': meta.get('details', {}).get('quantization_level', '?')})
