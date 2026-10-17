@@ -1,0 +1,7 @@
+Oct 08 22:21:23 minis ollama[1818480]: time=2026-10-08T22:21:23.217+02:00 level=INFO source=llama_server.go:436 msg="starting llama-server" cmd="/usr/local/lib/ollama/llama-server --model /usr/share/ollama/.ollama/models/blobs/sha256-bb722270d54346adc198f213851dbe0207e87c3ecf2a0aff4d92262726215391 --port 41297 --host 127.0.0.1 --no-webui --offline -c 8192 -np 1 --log-verbosity 4 --no-log-prefix --no-log-timestamps --no-jinja --chat-template chatml --mmproj /usr/share/ollama/.ollama/models/blobs/sha256-0cb0cd0a5c499d92942caa22fe5abb98f6e8874868d590e2b094ece4ac8e6d28 --spec-type draft-mtp --spec-draft-n-max 3 --spec-draft-backend-sampling --spec-draft-model /usr/share/ollama/.ollama/models/blobs/sha256-7008a656050bed18f6741406a631e83fa75ee1a02308f2e4f40d978cfbb3ce4b --flash-attn auto -b 1024 -ub 1024 --context-shift --keep 4"
+Oct 08 22:21:24 minis ollama[1818480]: load_tensors:      Vulkan0 model buffer size =  7024.34 MiB
+Oct 08 22:21:24 minis ollama[1818480]: load_tensors:  Vulkan_Host model buffer size =   787.50 MiB
+Oct 08 22:21:25 minis ollama[1818480]: llama_kv_cache:    Vulkan0 KV buffer size =   128.00 MiB
+Oct 08 22:21:25 minis ollama[1818480]: llama_kv_cache:    Vulkan0 KV buffer size =   640.00 MiB
+Oct 08 22:21:26 minis ollama[1818480]: load_tensors:      Vulkan0 model buffer size =   428.53 MiB
+Oct 08 22:21:26 minis ollama[1818480]: load_tensors:  Vulkan_Host model buffer size =   272.00 MiB

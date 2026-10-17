@@ -38,6 +38,16 @@ class ReportGenerator:
         templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
         self.env = Environment(loader=FileSystemLoader(templates_dir))
 
+    def generate_benchmark_report(self, report, output_file):
+        """Render native benchmark evidence with escaped model output, offline."""
+        from pathlib import Path
+        environment = self.env.overlay(autoescape=True)
+        content = environment.get_template('benchmark.html').render(report=report)
+        target = Path(output_file)
+        temporary = target.with_suffix('.html.tmp')
+        temporary.write_text(content, encoding='utf-8')
+        temporary.replace(target)
+
     def save_results_to_json(self, results: List[Dict[str, Any]], output_file: str = 'allama.json') -> None:
         """
         Zapisuje wyniki testów do pliku JSON.

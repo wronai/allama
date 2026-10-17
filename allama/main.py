@@ -99,8 +99,13 @@ class LLMTester:
             }
 
             # Dodaj specjalne parametry jeśli są dostępne
-            if model_config.get('think') == 'true':
-                data['think'] = True
+            think = model_config.get('think')
+            if isinstance(think, bool):
+                data['think'] = think
+            elif think in ('true', 'false'):
+                data['think'] = think == 'true'
+            elif think in ('low', 'medium', 'high', 'xhigh'):
+                data['think'] = think
 
             timeout = self.config.get('timeouts', {}).get('request_timeout', 60)
             response = requests.post(

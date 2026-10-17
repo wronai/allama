@@ -1,0 +1,8 @@
+{
+  "url": "http://minis:3001/",
+  "status": 200,
+  "model_rows": 5,
+  "attempts": 60,
+  "mobile_overflow": false,
+  "page_errors": []
+}

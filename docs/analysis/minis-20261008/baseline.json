@@ -1,0 +1,43 @@
+{
+  "model_name": "gpt-oss:20b",
+  "url": "http://minis:11434/api/chat",
+  "prompt": "Write a Python function called 'add_numbers' that takes two parameters (a, b) and returns their sum. Include a docstring and a simple test call.",
+  "prompt_name": "Simple Addition Function",
+  "success": true,
+  "raw_response": "Here\u2019s a minimal, self\u2011contained example:\n\n```python\ndef add_numbers(a, b):\n    \"\"\"\n    Return the sum of two numbers.\n\n    Parameters\n    ----------\n    a : int | float\n        First operand.\n    b : int | float\n        Second operand.\n\n    Returns\n    -------\n    int | float\n        The arithmetic sum of *a* and *b*.\n    \"\"\"\n    return a + b\n\n# Simple test call\nif __name__ == \"__main__\":\n    result = add_numbers(5, 7)\n    print(f\"5 + 7 = {result}\")   # Expected output: 5 + 7 = 12\n```\n\n- The function `add_numbers` simply returns the result of `a + b`.\n- A concise docstring explains its purpose, parameters, and return type.\n- The test block runs only when the script is executed directly, printing a quick verification of the function\u2019s behavior.",
+  "extracted_code": "def add_numbers(a, b):\n    \"\"\"\n    Return the sum of two numbers.\n\n    Parameters\n    ----------\n    a : int | float\n        First operand.\n    b : int | float\n        Second operand.\n\n    Returns\n    -------\n    int | float\n        The arithmetic sum of *a* and *b*.\n    \"\"\"\n    return a + b\n\n# Simple test call\nif __name__ == \"__main__\":\n    result = add_numbers(5, 7)\n    print(f\"5 + 7 = {result}\")   # Expected output: 5 + 7 = 12",
+  "generated_code": "def add_numbers(a, b):\n    \"\"\"\n    Return the sum of two numbers.\n\n    Parameters\n    ----------\n    a : int | float\n        First operand.\n    b : int | float\n        Second operand.\n\n    Returns\n    -------\n    int | float\n        The arithmetic sum of *a* and *b*.\n    \"\"\"\n    return a + b\n\n# Simple test call\nif __name__ == \"__main__\":\n    result = add_numbers(5, 7)\n    print(f\"5 + 7 = {result}\")   # Expected output: 5 + 7 = 12",
+  "evaluation": {
+    "code": "def add_numbers(a, b):\n    \"\"\"\n    Return the sum of two numbers.\n\n    Parameters\n    ----------\n    a : int | float\n        First operand.\n    b : int | float\n        Second operand.\n\n    Returns\n    -------\n    int | float\n        The arithmetic sum of *a* and *b*.\n    \"\"\"\n    return a + b\n\n# Simple test call\nif __name__ == \"__main__\":\n    result = add_numbers(5, 7)\n    print(f\"5 + 7 = {result}\")   # Expected output: 5 + 7 = 12",
+    "response_time": 17.158087253570557,
+    "syntax_valid": true,
+    "runs_without_error": true,
+    "execution_output": "5 + 7 = 12\n",
+    "quality_metrics": {
+      "line_count": 19,
+      "has_function_def": true,
+      "has_class_def": false,
+      "has_docstring": true,
+      "has_comments": true,
+      "has_error_handling": false,
+      "imports_used": 0
+    },
+    "contains_expected_keywords": true,
+    "keyword_match_ratio": 1.0,
+    "found_keywords": [
+      "def",
+      "add_numbers",
+      "return",
+      "a",
+      "b"
+    ],
+    "expected_keywords": [
+      "def",
+      "add_numbers",
+      "return",
+      "a",
+      "b"
+    ]
+  },
+  "response_time": 17.158087253570557
+}
